@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="/styles/preview-controls.css" />
     <link rel="stylesheet" href="/styles/quest-map.css" />
     <link rel="stylesheet" href="/styles/quest-editor.css" />
+    <link rel="stylesheet" href="/styles/description-editor.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -51,10 +52,28 @@
               <button class="view-button" id="mapViewButton" type="button" aria-pressed="false">章节任务图</button>
             </div>
           </div>
-          <div class="canvas-scroll" id="canvasScroll">
-            <div class="canvas-stage" id="canvasStage">
-              <canvas id="questCanvas" aria-label="Minecraft FTB Quests 任务详情面板"></canvas>
+          <div class="details-workbench" id="detailsWorkbench">
+            <div class="canvas-scroll" id="canvasScroll">
+              <div class="canvas-stage" id="canvasStage">
+                <canvas id="questCanvas" aria-label="Minecraft FTB Quests 任务详情面板"></canvas>
+              </div>
             </div>
+            <div class="editor-divider" id="editorDivider" role="separator" aria-orientation="horizontal" aria-label="调整任务说明编辑区高度" aria-valuemin="120" aria-valuenow="220" aria-valuemax="520" tabindex="0">
+              <span class="divider-grip" aria-hidden="true"></span>
+            </div>
+            <section class="description-pane" id="descriptionPane" aria-label="任务说明编辑">
+              <div class="description-head">
+                <div class="description-title">
+                  <div class="section-kicker">DESCRIPTION</div>
+                  <h2>任务说明</h2>
+                </div>
+                <div class="description-actions">
+                  <span class="completion-hint"><kbd>Tab</kbd> 接受补全 · <kbd>Esc</kbd> 关闭 · <kbd>Ctrl</kbd>+<kbd>S</kbd> 保存</span>
+                  <button class="completion-entry" id="openCompletions" type="button">语法补全</button>
+                </div>
+              </div>
+              <div class="description-editor" id="descriptionEditor"></div>
+            </section>
           </div>
           <section class="graph-view hidden" id="graphView" aria-label="章节任务图">
             <div class="graph-toolbar">
@@ -77,7 +96,22 @@
               <span id="crossChapterDeps" class="cross-dependency-list"></span>
             </div>
           </section>
-          <div class="canvas-footer"><span id="renderNote">FTB Quests · 离线近似</span><span id="canvasSize">—</span></div>
+          <div class="canvas-footer">
+            <span id="renderNote">FTB Quests · 离线近似</span>
+            <div class="page-control">
+              <span class="page-label">说明页</span>
+              <div class="page-buttons">
+                <button id="prevPage" class="page-arrow" type="button" aria-label="上一页">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 4.5-5 5.5 5 5.5"></path></svg>
+                </button>
+                <output id="pageValue">1 / 1</output>
+                <button id="nextPage" class="page-arrow" type="button" aria-label="下一页">
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7.5 4.5 5 5.5-5 5.5"></path></svg>
+                </button>
+              </div>
+            </div>
+            <span id="canvasSize">—</span>
+          </div>
         </section>
 
         <aside class="inspector">
@@ -111,23 +145,7 @@
             </div>
           </fieldset>
 
-          <div class="page-control">
-            <span>说明页</span>
-            <div class="page-buttons">
-              <button id="prevPage" class="page-arrow" type="button" aria-label="上一页">
-                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 4.5-5 5.5 5 5.5"></path></svg>
-              </button>
-              <output id="pageValue">1 / 1</output>
-              <button id="nextPage" class="page-arrow" type="button" aria-label="下一页">
-                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7.5 4.5 5 5.5-5 5.5"></path></svg>
-              </button>
-            </div>
-          </div>
-
           <div id="questEditor"></div>
-          <div class="draft-heading"><label for="draft">任务说明</label><span>与其他字段共用同一草稿</span></div>
-          <textarea id="draft" spellcheck="false" aria-label="任务说明编辑和预览"></textarea>
-          <div class="draft-help">编辑模式下实时预览并纳入同一保存草稿。支持 <code>&amp;颜色 / 格式</code>、空行与独立行 <code>{@pagebreak}</code>；<code>{image:...}</code> 仍由原预览器处理。</div>
 
           <div class="inspector-divider"></div>
           <div class="accuracy-note">

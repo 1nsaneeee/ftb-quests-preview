@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-10-19T08:13:44.879Z",
+        "reason": "Agent verified: static zero-padding false positives; flex-centered toolbar/footer text has 11-13px vertical insets in live browser"
+      }
+    ]
+  }
+}

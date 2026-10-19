@@ -33,7 +33,6 @@ export class PreviewControls {
     };
     this.onPrevious = () => handlers.page(-1);
     this.onNext = () => handlers.page(1);
-    this.onDraft = () => handlers.draft(elements.draft.value);
     this.onReset = () => handlers.resetDraft();
   }
 
@@ -46,7 +45,6 @@ export class PreviewControls {
     el.scaleGroup.addEventListener("click", this.onScale);
     el.prevPage.addEventListener("click", this.onPrevious);
     el.nextPage.addEventListener("click", this.onNext);
-    el.draft.addEventListener("input", this.onDraft);
     el.resetDraft.addEventListener("click", this.onReset);
   }
 
@@ -81,7 +79,6 @@ export class PreviewControls {
     el.pageValue.textContent = `${snapshot.page + 1} / ${snapshot.pageCount}`;
     el.prevPage.disabled = snapshot.page <= 0;
     el.nextPage.disabled = snapshot.page >= snapshot.pageCount - 1;
-    if (el.draft.value !== snapshot.draft) el.draft.value = snapshot.draft;
   }
 
   isValidNumber(value) {
@@ -118,7 +115,6 @@ export class PreviewControls {
     el.scaleGroup.removeEventListener("click", this.onScale);
     el.prevPage.removeEventListener("click", this.onPrevious);
     el.nextPage.removeEventListener("click", this.onNext);
-    el.draft.removeEventListener("input", this.onDraft);
     el.resetDraft.removeEventListener("click", this.onReset);
   }
 }

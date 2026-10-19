@@ -1,5 +1,6 @@
 import { QuestDetails } from "./components/quest-details.js";
 import { QuestEditor } from "./components/quest-editor.js";
+import { DescriptionEditor } from "./editor-assets/description-editor.bundle.js";
 import { PreviewControls, normalizeWidth, widthBoundsFor } from "./components/preview-controls.js";
 import { QuestMap } from "./components/quest-map.js";
 import { QuestNavigation } from "./components/quest-navigation.js";
@@ -12,7 +13,10 @@ const ui = {
   panelWidth: document.querySelector("#panelWidth"), panelWidthNumber: document.querySelector("#panelWidthNumber"), widthEnds: document.querySelector("#widthEnds"),
   scaleGroup: document.querySelector("#guiScaleGroup"), scaleButtons: [...document.querySelectorAll("[data-scale]")],
   pageValue: document.querySelector("#pageValue"), prevPage: document.querySelector("#prevPage"), nextPage: document.querySelector("#nextPage"),
-  draft: document.querySelector("#draft"), resetDraft: document.querySelector("#resetDraft"),
+  detailsWorkbench: document.querySelector("#detailsWorkbench"), descriptionPane: document.querySelector("#descriptionPane"),
+  descriptionEditor: document.querySelector("#descriptionEditor"), editorDivider: document.querySelector("#editorDivider"),
+  openCompletions: document.querySelector("#openCompletions"),
+  resetDraft: document.querySelector("#resetDraft"),
   crumbGroup: document.querySelector("#crumbGroup"), crumbChapter: document.querySelector("#crumbChapter"), crumbQuest: document.querySelector("#crumbQuest"),
   renderNote: document.querySelector("#renderNote"), canvasSize: document.querySelector("#canvasSize"),
   canvasScroll: document.querySelector("#canvasScroll"), canvasStage: document.querySelector("#canvasStage"),
@@ -93,6 +97,10 @@ const details = new QuestDetails({
     state.page = page;
     controls.update(controlSnapshot());
   },
+  onPageChange: page => {
+    state.page = page;
+    render();
+  },
 });
 
 function descriptionText(description) {
@@ -161,7 +169,6 @@ function controlSnapshot() {
     guiScale: state.guiScale,
     page: state.page,
     pageCount: state.pageCount,
-    draft: descriptionText(findQuest()?.quest.description ?? []),
   };
 }
 
@@ -175,6 +182,11 @@ function renderCrumbs() {
   ui.renderNote.textContent = `FTB Quests · ${state.data.locale} · 离线近似`;
 }
 
+function clampPage() {
+  const count = splitPages(state.draft).length;
+  state.page = Math.max(0, Math.min(state.page, count - 1));
+}
+
 function render() {
   if (!state.data) return;
   const viewData = effectiveData();
@@ -182,10 +194,16 @@ function render() {
   const widthBounds = widthBoundsFor(selected?.quest.minWidth);
   state.logicalWidth = normalizeWidth(state.logicalWidth, widthBounds);
   state.draft = descriptionText(selected?.quest.description ?? []);
+  clampPage();
   navigation.update(viewData, state.selectedQuestId);
   renderCrumbs();
   controls.update(controlSnapshot());
   details.update({ selected: selectedSnapshot(), draft: state.draft, page: state.page, logicalWidth: state.logicalWidth, guiScale: state.guiScale });
+  descriptionEditor.update({
+    questKey: selected ? editKey(selected.quest.id) : "none",
+    doc: state.draft,
+    editable: !state.saving,
+  });
   map.update(viewData, state.selectedQuestId, { editing: state.editing, snapGrid: state.snapGrid, saving: state.saving });
   editor.update({
     selected,
@@ -198,14 +216,13 @@ function render() {
     error: state.editorError,
     saveConflict: state.saveConflict,
   });
-  ui.draft.disabled = state.saving;
   ui.resetDraft.disabled = state.saving;
 }
 
 function setView(view) {
   state.view = view;
   const isMap = view === "map";
-  ui.canvasScroll.classList.toggle("view-hidden", isMap);
+  ui.detailsWorkbench.classList.toggle("view-hidden", isMap);
   ui.canvasFooter.classList.toggle("view-hidden", isMap);
   ui.graphView.classList.toggle("hidden", !isMap);
   ui.detailsViewButton.classList.toggle("active", !isMap);
@@ -243,7 +260,6 @@ function setQuestChanges(changes, questId = state.selectedQuestId) {
   state.editorMessage = state.externalUpdate ? "检测到源文件外部更新；保存前请重新载入。" : "";
   state.editorError = Boolean(state.externalUpdate);
   if (Object.keys(next).length && !state.data?.editing?.enabled) state.editorMessage = "当前数据源仅支持本地预览，未启用写回。";
-  state.page = 0;
   void textRenderer.loadGlyphs(descriptionText(findQuest()?.quest.description ?? []));
   render();
 }
@@ -284,7 +300,7 @@ const navigation = new QuestNavigation({
 const controls = new PreviewControls({
   locale: ui.locale, panelWidth: ui.panelWidth, panelWidthNumber: ui.panelWidthNumber, widthEnds: ui.widthEnds,
   scaleGroup: ui.scaleGroup, scaleButtons: ui.scaleButtons, pageValue: ui.pageValue, prevPage: ui.prevPage, nextPage: ui.nextPage,
-  draft: ui.draft, resetDraft: ui.resetDraft,
+  resetDraft: ui.resetDraft,
 }, {
   locale: async locale => {
     if (state.saving || changedQuestCount() > 0) {
@@ -303,9 +319,6 @@ const controls = new PreviewControls({
     const pages = splitPages(state.draft);
     state.page = Math.max(0, Math.min(pages.length - 1, state.page + delta));
     render();
-  },
-  draft: value => {
-    setQuestChanges({ description: value.split("\n") });
   },
   resetDraft: () => {
     const selected = findBaseQuest();
@@ -344,6 +357,16 @@ const editor = new QuestEditor(ui.editorRoot, {
   snap: value => { state.snapGrid = value; render(); },
   save: saveChanges,
   discard: discardChanges,
+});
+
+const descriptionEditor = new DescriptionEditor({
+  host: ui.descriptionEditor,
+  divider: ui.editorDivider,
+  pane: ui.descriptionPane,
+  workbench: ui.detailsWorkbench,
+}, {
+  change: text => setQuestChanges({ description: text.split("\n") }),
+  save: () => { void saveChanges(); },
 });
 
 async function saveChanges() {
@@ -412,8 +435,13 @@ function onZoomOut() { map.zoomBy(1 / 1.2); }
 function onFitGraph() { map.fit(); }
 function onDetailsView() { setView("details"); }
 function onMapView() { setView("map"); }
+function onOpenCompletions() { descriptionEditor.showCompletions(); }
 function onKeyDown(event) {
-  if (event.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) {
+  const target = document.activeElement;
+  const editingTarget = Boolean(target?.isContentEditable)
+    || ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName)
+    || Boolean(target?.closest?.(".cm-editor"));
+  if (event.key === "/" && !editingTarget) {
     event.preventDefault();
     ui.search.focus();
   }
@@ -429,6 +457,7 @@ function destroy() {
   navigation.destroy();
   controls.destroy();
   editor.destroy();
+  descriptionEditor.destroy();
   map.destroy();
   textRenderer.destroy();
   ui.zoomIn.removeEventListener("click", onZoomIn);
@@ -436,6 +465,7 @@ function destroy() {
   ui.fitGraph.removeEventListener("click", onFitGraph);
   ui.detailsViewButton.removeEventListener("click", onDetailsView);
   ui.mapViewButton.removeEventListener("click", onMapView);
+  ui.openCompletions.removeEventListener("click", onOpenCompletions);
   document.removeEventListener("keydown", onKeyDown);
   window.removeEventListener("beforeunload", onBeforeUnload);
   invalidators.clear();
@@ -453,10 +483,12 @@ function onBeforeUnload(event) {
 navigation.mount();
 controls.mount();
 editor.mount();
+descriptionEditor.mount();
 details.mount();
 map.mount();
 invalidators.add(() => details.draw());
 invalidators.add(() => map.render());
+ui.openCompletions.addEventListener("click", onOpenCompletions);
 ui.zoomIn.addEventListener("click", onZoomIn);
 ui.zoomOut.addEventListener("click", onZoomOut);
 ui.fitGraph.addEventListener("click", onFitGraph);

@@ -1,7 +1,7 @@
 import { splitPages, tokenizeFormatting } from "../lib/minecraft-text.js";
 
 export class QuestDetails {
-  constructor({ canvas, scroll, stage, canvasSize, getAsset, textRenderer, onPageInfo }) {
+  constructor({ canvas, scroll, stage, canvasSize, getAsset, textRenderer, onPageInfo, onPageChange }) {
     this.canvas = canvas;
     this.context = canvas.getContext("2d");
     this.scroll = scroll;
@@ -9,15 +9,32 @@ export class QuestDetails {
     this.canvasSize = canvasSize;
     this.getAsset = getAsset;
     this.textRenderer = textRenderer;
-    this.onPageInfo = onPageInfo;
+    this.onPageInfo = onPageInfo ?? (() => {});
+    this.onPageChange = onPageChange ?? (() => {});
     this.snapshot = null;
+    this.pageHitAreas = [];
+    this.resizeObserver = null;
     this.handleResize = () => this.draw();
     this.handleScroll = () => this.draw();
+    this.handleCanvasClick = event => {
+      if (!this.snapshot || typeof this.canvas.getBoundingClientRect !== "function") return;
+      const rect = this.canvas.getBoundingClientRect();
+      const scale = this.snapshot.guiScale || 1;
+      const x = (event.clientX - rect.left) / scale;
+      const y = (event.clientY - rect.top) / scale;
+      const hit = this.pageHitAreas.find(area => x >= area.left && x <= area.right && y >= area.top && y <= area.bottom);
+      if (hit) this.onPageChange(hit.page);
+    };
   }
 
   mount() {
     window.addEventListener("resize", this.handleResize);
     this.scroll.addEventListener("scroll", this.handleScroll, { passive: true });
+    if (typeof ResizeObserver === "function") {
+      this.resizeObserver = new ResizeObserver(this.handleResize);
+      this.resizeObserver.observe(this.scroll);
+    }
+    this.canvas.addEventListener("click", this.handleCanvasClick);
     this.getAsset("minecraft:font/ascii", image => this.textRenderer.setAtlas(image));
     this.getAsset("ftblibrary:textures/gui/background_squares");
   }
@@ -83,6 +100,7 @@ export class QuestDetails {
     const pages = splitPages(snapshot.draft);
     const page = Math.min(snapshot.page, Math.max(0, pages.length - 1));
     this.onPageInfo(page, pages.length);
+    this.pageHitAreas = [];
     const width = snapshot.logicalWidth;
     const padding = 16;
     const innerWidth = width - padding * 2;
@@ -173,10 +191,33 @@ export class QuestDetails {
       const buttonY = panelY + panelHeight - 19;
       ctx.fillStyle = "#d5d5d5";
       ctx.font = "9px 'Minecraft UI', sans-serif";
-      if (page > 0) ctx.fillText("‹ 上一页", panelX + 9, buttonY);
-      if (page < pages.length - 1) ctx.fillText("下一页 ›", panelX + width - 61, buttonY);
+      if (page > 0) {
+        const label = "‹ 上一页";
+        const x = panelX + 9;
+        ctx.fillText(label, x, buttonY);
+        this.pageHitAreas.push(this.makeTextHitArea(ctx, label, x, buttonY, page - 1));
+      }
+      if (page < pages.length - 1) {
+        const label = "下一页 ›";
+        const x = panelX + width - 61;
+        ctx.fillText(label, x, buttonY);
+        this.pageHitAreas.push(this.makeTextHitArea(ctx, label, x, buttonY, page + 1));
+      }
     }
     this.canvasSize.textContent = `${width} × ${Math.round(panelHeight)} logical px · ${scale}×`;
+  }
+
+  makeTextHitArea(context, text, x, baselineY, page) {
+    const metrics = context.measureText(text);
+    const ascent = metrics.actualBoundingBoxAscent || 9;
+    const descent = metrics.actualBoundingBoxDescent || 3;
+    return {
+      left: x - 3,
+      right: x + metrics.width + 3,
+      top: baselineY - ascent - 2,
+      bottom: baselineY + descent + 2,
+      page,
+    };
   }
 
   showError(message) {
@@ -198,6 +239,9 @@ export class QuestDetails {
   destroy() {
     window.removeEventListener("resize", this.handleResize);
     this.scroll.removeEventListener("scroll", this.handleScroll);
+    this.resizeObserver?.disconnect();
+    this.canvas.removeEventListener("click", this.handleCanvasClick);
+    this.pageHitAreas = [];
     this.snapshot = null;
   }
 }

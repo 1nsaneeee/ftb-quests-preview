@@ -50,6 +50,7 @@ const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
   ".mjs": "text/javascript; charset=utf-8",
   ".png": "image/png",
   ".svg": "image/svg+xml",
@@ -727,6 +728,7 @@ const server = createServer(async (request, response) => {
     if (route === "/") route = previewConfig.needsSetup ? "/setup.html" : "/index.html";
     const allowed = ["/index.html", "/setup.html", "/setup.js", "/app.js", "/styles.css"].includes(route)
       || /^\/(?:components|lib)\/[a-zA-Z0-9_-]+\.js$/.test(route)
+      || /^\/editor-assets\/[a-zA-Z0-9_.-]+$/.test(route)
       || /^\/styles\/[a-zA-Z0-9_-]+\.css$/.test(route);
     if (!allowed) {
       response.writeHead(404).end("Not found");
