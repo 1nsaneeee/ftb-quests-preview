@@ -24,7 +24,7 @@
 
 ### 从 npm 安装（推荐）
 
-> 0.11 latest
+> latest:0.1.1
 
 ```sh
 npm install -g ftb-quests-preview
