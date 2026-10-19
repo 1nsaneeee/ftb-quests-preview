@@ -24,7 +24,7 @@
 
 ### 从 npm 安装（推荐）
 
-> 0.1.0 已发布到 npm。命令是 `ftbquest`（单数），不是 `ftbquests`；浏览器入口别名是 `ftbquest-preview`。
+> 0.11 latest
 
 ```sh
 npm install -g ftb-quests-preview
