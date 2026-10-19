@@ -34,6 +34,51 @@
 
 安装脚本只写本地配置文件，不会创建开机启动项，也不会改动游戏文件。
 
+### 安装为全局命令（npm 包 + PowerShell）
+
+`install.ps1` 是“安装工具本身”的脚本，和上面的 `install.cmd`（配置 quest 数据源）不是一回事。它会：
+
+1. 检查 Node.js 20+；
+2. 用 `npm pack` 打包当前目录，再 `npm install -g` 安装；
+3. 把 npm 全局 bin 目录注册到**用户 PATH**（已存在则跳过）；
+4. 把 `skills/ftbquests/` 复制到 agent skills 目录（默认 `%USERPROFILE%\.agents\skills`，不存在时尝试 `.dsh\skills`）；
+5. 验证 `ftbquest --version`。
+
+在项目目录运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+安装完成后，**新开一个终端**，然后：
+
+```sh
+ftbquest --version
+ftbquest skill
+```
+
+常用参数：
+
+```powershell
+# 安装到用户可写目录，避免全局 npm 权限问题
+.\install.ps1 -InstallPrefix "$env:LOCALAPPDATA\ftbquests"
+
+# 只安装命令，不改 PATH / 不装 skill
+.\install.ps1 -NoPath -NoSkill
+
+# 自定义 skill 目录
+.\install.ps1 -SkillDir "$env:USERPROFILE\.agents\skills"
+```
+
+也可以先生成 tarball，再手动安装：
+
+```sh
+npm pack
+npm install -g .\ftb-quests-preview-0.1.0.tgz
+```
+
+`install.ps1` 需要当前目录有 `package.json`；安装后 `ftbquest` / `ftbquest-preview` 都是全局命令。开发时想指向当前源码而不是安装副本，用 `npm link` 即可。
+
 ### macOS / Linux（或习惯命令行的 Windows）
 
 ```sh
@@ -65,13 +110,13 @@ npm run setup -- --demo
 
 ## 启动
 
-Windows 可以双击 `start.cmd`；其他平台运行：
+Windows 可以双击 `start.cmd`，或在全局安装后运行：
 
 ```sh
-npm start
+ftbquest-preview
 ```
 
-然后打开 <http://127.0.0.1:4173>。停止服务：在终端按 `Ctrl+C`，或关闭 `start.cmd` 的窗口。
+源码目录里也可以运行 `npm start`。然后打开 <http://127.0.0.1:4173>。停止服务：在终端按 `Ctrl+C`，或关闭 `start.cmd` 的窗口。
 
 启动时的数据源优先级从高到低：
 
@@ -96,18 +141,29 @@ $env:QUEST_PREVIEW_PORT = "4180"; npm start
 
 除了浏览器，项目还提供一个 headless CLI，适合脚本和 AI Agent。它复用同一套 SNBT parser、配置解析、备份和冲突检测逻辑；默认只做 dry-run，不写文件。
 
+`package.json` 已经把 CLI 注册为 `bin`。在项目目录执行一次：
+
 ```sh
-node cli.mjs list --json --brief
-node cli.mjs show demo_first --json
-node cli.mjs show demo_first --json --raw
-node cli.mjs search "钢" --in title,subtitle,description --json
-node cli.mjs lint --json --strict
-node cli.mjs schema patch --json
-node cli.mjs patch --file patch.json --json          # dry-run
-node cli.mjs patch --file patch.json --apply --json  # 真正写入
+npm link
+ftbquest --version
 ```
 
-也可以用 `npm run cli -- <command>`；脚本或 AI 建议直接用 `node cli.mjs`，避免 npm 的启动日志混进 JSON 输出。
+之后在任意目录都可以直接使用 `ftbquest`（浏览器入口是 `ftbquest-preview`）。`npm link` 只是本地全局链接，不会发布包；卸载用 `npm unlink -g ftb-quests-preview`。
+
+```sh
+ftbquest list --json --brief
+ftbquest show demo_first --json
+ftbquest show demo_first --json --raw
+ftbquest search "钢" --in title,subtitle,description --json
+ftbquest deps demo_first --direction both --depth 2 --json
+ftbquest lint --json --strict
+ftbquest schema patch --json
+ftbquest skill                                # 打印 AI 使用说明
+ftbquest patch --file patch.json --json          # dry-run
+ftbquest patch --file patch.json --apply --json  # 真正写入
+```
+
+没有 `npm link` 时仍可用 `node cli.mjs ...` 或 `npm run cli -- ...`；AI 场景建议直接用 `ftbquest`，避免 npm 的启动日志混进 JSON 输出。
 
 数据源参数和 `npm start` 相同：`--data-dir`、`--instance-root`、`--demo`，否则读取 `quest-preview.local.json`。`--locale` 默认 `en_us`；中文包建议显式传 `--locale zh_cn`。patch 文件里的 `locale` 优先级更高，会同时决定读取和写入语言。
 
@@ -117,9 +173,11 @@ node cli.mjs patch --file patch.json --apply --json  # 真正写入
 | --- | --- |
 | `list` | 列出章节和任务；`--brief` 只返回 ID、标题、章节、坐标 |
 | `show <questId>` | 查看一个任务；`--raw` 附带原始 SNBT 模型 |
+| `deps <questId>` | 查看依赖/反向依赖；`--direction up,down,both`，`--depth 1-20` |
 | `search <query>` | 搜索任务；`--in` 指定 `id,title,subtitle,description,tasks,rewards` |
 | `lint` | 检查重复 ID、缺失/循环依赖、非法坐标、未知形状/任务/奖励类型、无任何语言标题等；`--strict` 在 error 时退出 1 |
 | `schema [section]` | 输出 FTB Quests 字段模型、枚举、task/reward 类型和 patch 限制 |
+| `skill` | 打印内置的 AI 使用说明；`--json` 返回路径和内容 |
 | `patch --file <path>` | 应用 JSON patch；默认 dry-run，`--apply` 才写 |
 
 ### patch 格式
@@ -150,6 +208,24 @@ node cli.mjs patch --file patch.json --apply --json  # 真正写入
 - `lint --strict` 适合放进 CI；`patch --strict` 会在写完后按 lint 结果决定退出码，备份仍可手动恢复。
 
 `lint` 目前覆盖：重复 quest/task/reward ID、缺失依赖、自依赖、依赖环、重复坐标、非法坐标、未知 shape、未知 task/reward 类型、缺失 task/reward 的 `id`/`type`、章节名单与 `filename` 不一致、缺失章节分组、`min_required_dependencies` 不可满足、重复依赖、无任何语言标题等。
+
+### AI Skill
+
+仓库内有一个给 agent 用的 skill：[skills/ftbquests/SKILL.md](skills/ftbquests/SKILL.md)。它描述什么时候用 `ftbquest`、只读/编辑工作流、patch 格式、安全检查、常见任务和限制。
+
+`install.ps1` 默认会自动把它复制到 agent skills 目录。手动安装时，把整个 `skills/ftbquests/` 目录复制过去即可，例如：
+
+```sh
+# Unix-like / 本项目 harness
+cp -r skills/ftbquests ~/.agents/skills/
+```
+
+```powershell
+# Windows PowerShell
+Copy-Item -Recurse skills\ftbquests "$env:USERPROFILE\.agents\skills\"
+```
+
+之后 agent 在遇到 FTB Quests 编辑任务时会优先使用 `ftbquest`，而不是手改 SNBT。没有 skill 系统时，直接让 agent 运行 `ftbquest skill` 或阅读 `skills/ftbquests/SKILL.md` 也可以。
 
 ## 使用
 

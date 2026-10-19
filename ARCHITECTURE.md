@@ -15,7 +15,9 @@ Components follow `mount()`, `update(snapshot)`, and `destroy()` where they own 
 
 ## Server and install boundaries
 
-- `cli.mjs` is the headless AI/script entry point. It resolves the same source as `server.mjs`, then uses `server/store.mjs` for reads/lint and `server/save-service.mjs` for dry-run/apply. Patch is dry-run by default; `--apply` is required to write.
+- `cli.mjs` is the headless AI/script entry point (published as the `ftbquest` bin). It resolves the same source as `server.mjs`, then uses `server/store.mjs` for reads/lint and `server/save-service.mjs` for dry-run/apply. Patch is dry-run by default; `--apply` is required to write.
+- `server.mjs` is also the `ftbquest-preview` bin for the browser UI.
+- `skills/ftbquests/SKILL.md` is the agent-facing instruction set (when to use the CLI, read/edit workflow, patch contract, safety). `AGENTS.md` points agents at that skill and the `ftbquest` command.
 - `server/store.mjs` owns the headless read model: localized chapter/quest records, chapter groups, revisions, raw SNBT, search, and lint entry points. It is independent of the browser UI.
 - `server/lint.mjs` contains offline consistency rules (IDs, dependencies/cycles, coordinates, shapes, task/reward types, locale titles, chapter metadata). It is intentionally read-only.
 - `server/schema.mjs` records the 2101.1.26 field/enum model exposed by `schema`, including which fields the current patch API can write.
@@ -25,6 +27,7 @@ Components follow `mount()`, `update(snapshot)`, and `destroy()` where they own 
 - `server/config.mjs` resolves CLI/environment paths from the process working directory and local-config paths from the config file's directory. Setup stores relative paths when possible; an explicit but invalid source is an error rather than a silent demo fallback.
 - `server/save-service.mjs` validates the request, verifies every revision before mutation, writes a recoverable backup manifest, stages replacements, rechecks the targets, and restores already-replaced files if a later commit fails. `dryRun` reuses the same validation and diff path without writing.
 - `server/snbt-edit.mjs` applies source-span edits so comments, unknown keys, BOM, line endings, and ordering outside the edited fields survive. Locale writes use the FTB Quests keys `quest.<id>.title`, `quest.<id>.quest_subtitle`, and `quest.<id>.quest_desc`.
-- `install.mjs` is the cross-platform setup implementation. `install.cmd` is the Windows double-click wrapper (Node guard plus `install.mjs`); `start.cmd` starts the server after checking Node. `scripts/check-syntax.mjs` walks all Node modules in the project except ignored local directories.
+- `install.mjs` is the cross-platform data-source setup implementation. `install.cmd` is the Windows double-click wrapper (Node guard plus `install.mjs`) for source checkouts. `install.ps1` installs the package globally from a generated tarball, registers the npm bin directory in the user PATH, and copies the agent skill. `start.cmd` starts the browser server after checking Node. `scripts/check-syntax.mjs` walks all Node modules in the project except ignored local directories.
+- `package.json` exposes `ftbquest` (CLI) and `ftbquest-preview` (browser) bins, a `files` whitelist that keeps tests/docs/install wrappers out of the tarball, and `exports` for the headless store/lint/schema/save-service modules.
 
 The graph is a static layout preview: it reads real chapter/quest coordinates, shape/size metadata, icons, and dependencies. It does not emulate unlock state, completion state, the full quest book tree, every FTB rendering detail, or 3D item rendering.

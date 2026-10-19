@@ -19,6 +19,7 @@ instance-path.txt
 *.log
 *.jar
 *.zip
+*.tgz
 *.bak
 *.orig
 *.rej

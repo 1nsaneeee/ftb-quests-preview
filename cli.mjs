@@ -10,6 +10,7 @@ import { saveQuestChanges } from "./server/save-service.mjs";
 
 const appDir = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const fixtureQuestDir = join(appDir, "fixtures", "quests");
+const packageInfo = JSON.parse(await readFile(new URL("./package.json", import.meta.url), "utf8"));
 
 class CliError extends Error {
   constructor(code, message, details = {}, exitCode = 1) {
@@ -20,14 +21,17 @@ class CliError extends Error {
   }
 }
 
-const HELP = `Usage: node cli.mjs <command> [options]
+const HELP = `Usage: ftbquest <command> [options]
+       node cli.mjs <command> [options]
 
 Commands:
   list                  List chapters and quests
   show <questId>        Show one quest (add --raw for the raw SNBT model)
   search <query>        Search quests (--in id,title,subtitle,description,tasks,rewards)
+  deps <questId>        Show dependencies/dependants (--direction up|down|both --depth N)
   lint                  Report quest-pack issues (--strict fails on errors)
   schema [section]      Print the FTB Quests data model and patch limits
+  skill                 Print the agent skill/usage guide
   patch --file <path>   Validate/apply a JSON patch (dry-run by default)
 
 Source options (same resolution as server.mjs):
@@ -39,6 +43,9 @@ Output options:
   --json                    Machine-readable JSON
   --locale <locale>         Locale for display and text writes (default en_us)
   --chapter <id>            Filter list output to one chapter
+  --direction <dir>         For deps: up, down, or both (default both)
+  --depth <n>               For deps: traversal depth, 1-20 (default 1)
+  --version                 Print the package version
 
 Patch options:
   --file <path>             Patch JSON file
@@ -66,8 +73,11 @@ function parseArguments(argv) {
     apply: false,
     dryRun: false,
     help: false,
+    version: false,
     locale: null,
     chapter: null,
+    direction: null,
+    depth: null,
     file: null,
     in: null,
     sourceArgv: [],
@@ -88,6 +98,7 @@ function parseArguments(argv) {
     else if (token === "--strict") options.strict = true;
     else if (token === "--apply") options.apply = true;
     else if (token === "--dry-run") options.dryRun = true;
+    else if (token === "--version") options.version = true;
     else if (token === "--help" || token === "-h") options.help = true;
     else if (token === "--demo") {
       options.sourceArgv.push("--demo");
@@ -96,6 +107,12 @@ function parseArguments(argv) {
       index += 1;
     } else if (token === "--chapter") {
       options.chapter = takeValue(token, index);
+      index += 1;
+    } else if (token === "--direction") {
+      options.direction = takeValue(token, index);
+      index += 1;
+    } else if (token === "--depth") {
+      options.depth = takeValue(token, index);
       index += 1;
     } else if (token === "--file") {
       options.file = takeValue(token, index);
@@ -325,6 +342,30 @@ async function commandSearch(options, positionals) {
   emit(options, { ok: true, command: "search", locale: store.locale, query: positionals[0], matches }, printSearch);
 }
 
+async function commandDeps(options, positionals) {
+  if (positionals.length !== 1) throw new CliError("usage", "deps requires exactly one quest ID", {}, 2);
+  const direction = options.direction ?? "both";
+  if (!["up", "down", "both"].includes(direction)) {
+    throw new CliError("usage", "--direction must be up, down, or both", {}, 2);
+  }
+  const depth = options.depth === null ? 1 : Number(options.depth);
+  if (!Number.isInteger(depth) || depth < 1 || depth > 20) {
+    throw new CliError("usage", "--depth must be an integer from 1 to 20", {}, 2);
+  }
+  const { store } = await openStore(options);
+  const related = store.related(positionals[0], { direction, depth });
+  if (!related) throw new CliError("quest_not_found", `Quest '${positionals[0]}' was not found`, { questId: positionals[0] }, 1);
+  const human = value => {
+    for (const [label, list] of [["dependencies", value.dependencies], ["dependants", value.dependants]]) {
+      if (!list) continue;
+      process.stdout.write(`${label}:\n`);
+      if (!list.length) process.stdout.write("  (none)\n");
+      for (const item of list) process.stdout.write(`  ${"  ".repeat(item.depth - 1)}${item.id}  ${item.title}  [${item.chapterId}]\n`);
+    }
+  };
+  emit(options, { ok: true, command: "deps", locale: store.locale, ...related }, human);
+}
+
 async function commandLint(options) {
   const { store } = await openStore(options);
   const result = store.lint();
@@ -341,8 +382,21 @@ async function commandLint(options) {
   if (strictFailed) process.exitCode = 1;
 }
 
-async function commandSchema(options, positionals) {
-  if (positionals.length > 1) throw new CliError("usage", "schema accepts at most one section", {}, 2);
+async function commandSkill(options, positionals) {
+  if (positionals.length !== 0) throw new CliError("usage", "skill takes no positional arguments", {}, 2);
+  const path = join(appDir, "skills", "ftbquests", "SKILL.md");
+  let content;
+  try {
+    content = await readFile(path, "utf8");
+  } catch (error) {
+    throw new CliError("skill_not_found", `Could not read the bundled skill: ${error.message}`, { path }, 1);
+  }
+  emit(options, { ok: true, command: "skill", path, content }, value => {
+    process.stdout.write(value.content);
+  });
+}
+
+async function commandSchema(options, positionals) {  if (positionals.length > 1) throw new CliError("usage", "schema accepts at most one section", {}, 2);
   const snapshot = schemaSnapshot();
   if (!positionals.length) {
     emit(options, { ok: true, command: "schema", schema: snapshot }, value => {
@@ -439,6 +493,10 @@ async function main() {
     const parsed = parseArguments(process.argv.slice(2));
     options = parsed.options;
     const { positionals } = parsed;
+    if (options.version) {
+      process.stdout.write(`${packageInfo.version}\n`);
+      return;
+    }
     if (options.help || positionals.length === 0) {
       process.stdout.write(HELP);
       return;
@@ -447,8 +505,10 @@ async function main() {
     if (command === "list") await commandList(options);
     else if (command === "show") await commandShow(options, positionals);
     else if (command === "search") await commandSearch(options, positionals);
+    else if (command === "deps") await commandDeps(options, positionals);
     else if (command === "lint") await commandLint(options);
     else if (command === "schema") await commandSchema(options, positionals);
+    else if (command === "skill") await commandSkill(options, positionals);
     else if (command === "patch") await commandPatch(options);
     else throw new CliError("usage", `Unknown command: ${command}`, { command }, 2);
   } catch (error) {

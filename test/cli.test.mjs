@@ -64,6 +64,11 @@ test("list and show return machine-readable quest data", async t => {
   assert.equal(shown.quest.title, "First steps");
   assert.equal(shown.quest.subtitle, "A subtitle from the locale file");
   assert.equal(shown.quest.raw, undefined);
+
+  const deps = await runCli(t, ["deps", "demo_first", "--data-dir", questDir, "--json", "--direction", "down"]);
+  assert.equal(deps.code, 0);
+  const related = parseJson(deps);
+  assert.equal(related.dependants[0].id, "demo_second");
 });
 
 test("lint and schema expose diagnostics and the field model", async t => {
@@ -78,6 +83,12 @@ test("lint and schema expose diagnostics and the field model", async t => {
   const model = parseJson(schema);
   assert.equal(model.section, "patch");
   assert.ok(model.schema.fields.some(field => field.name === "description"));
+
+  const skill = await runCli(t, ["skill", "--json"]);
+  assert.equal(skill.code, 0);
+  const guide = parseJson(skill);
+  assert.match(guide.content, /^---\nname: ftbquests/m);
+  assert.match(guide.content, /ftbquest patch/);
 });
 
 test("patch defaults to dry-run, writes on --apply, and is idempotent", async t => {

@@ -75,6 +75,7 @@ export class QuestStore {
     this.questsById = new Map();
     this.duplicateQuestIds = new Map();
     this.duplicateObjectIds = new Map();
+    this.dependantsById = new Map();
     for (const chapter of chapters) {
       for (const quest of chapter.quests) {
         if (quest.id) {
@@ -82,6 +83,10 @@ export class QuestStore {
           else {
             if (!this.duplicateQuestIds.has(quest.id)) this.duplicateQuestIds.set(quest.id, []);
             this.duplicateQuestIds.get(quest.id).push(quest);
+          }
+          for (const dependency of quest.dependencies) {
+            if (!this.dependantsById.has(dependency)) this.dependantsById.set(dependency, []);
+            this.dependantsById.get(dependency).push(quest);
           }
         }
         const objects = [
@@ -238,6 +243,45 @@ export class QuestStore {
 
   getQuest(questId) {
     return this.questsById.get(questId) ?? null;
+  }
+
+  related(questId, { direction = "both", depth = 1 } = {}) {
+    const seed = this.questsById.get(questId);
+    if (!seed) return null;
+    const summarize = (quest, level) => ({
+      id: quest.id,
+      title: quest.title,
+      chapterId: quest.chapterId,
+      depth: level,
+    });
+    const walk = nextIds => {
+      const result = [];
+      const visited = new Set([seed.id]);
+      let frontier = [seed];
+      for (let level = 1; level <= depth && frontier.length; level += 1) {
+        const next = [];
+        for (const quest of frontier) {
+          for (const id of nextIds(quest)) {
+            if (visited.has(id)) continue;
+            visited.add(id);
+            const candidate = this.questsById.get(id);
+            if (!candidate) continue;
+            result.push(summarize(candidate, level));
+            next.push(candidate);
+          }
+        }
+        frontier = next;
+      }
+      return result;
+    };
+    const result = { questId, direction, depth };
+    if (direction === "up" || direction === "both") {
+      result.dependencies = walk(quest => quest.dependencies);
+    }
+    if (direction === "down" || direction === "both") {
+      result.dependants = walk(quest => (this.dependantsById.get(quest.id) ?? []).map(candidate => candidate.id));
+    }
+    return result;
   }
 
   showQuest(questId, { raw = false } = {}) {

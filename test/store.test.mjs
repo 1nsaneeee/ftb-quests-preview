@@ -35,6 +35,9 @@ test("loads localized quests, chapter groups, revisions, and search", async () =
   assert.match(store.revisions["lang/zh_cn.snbt"], /^[a-f0-9]{64}$/);
   assert.equal(store.search("副标题")[0].id, "demo_first");
   assert.equal(store.search("demo_first", { fields: ["id"] })[0].id, "demo_first");
+  assert.equal(store.related("demo_first", { direction: "down" }).dependants[0].id, "demo_second");
+  assert.deepEqual(store.related("demo_second", { direction: "up" }).dependencies.map(item => item.id), ["demo_first"]);
+  assert.equal(store.related("missing"), null);
   assert.deepEqual(store.lint().summary, { error: 0, warning: 0, info: 0 });
 });
 

@@ -1,8 +1,50 @@
 {
   "name": "ftb-quests-preview",
   "version": "0.1.0",
+  "description": "Local FTB Quests preview/editor with an AI-first CLI.",
   "license": "MIT",
   "type": "module",
+  "main": "./server/store.mjs",
+  "exports": {
+    ".": "./server/store.mjs",
+    "./store": "./server/store.mjs",
+    "./lint": "./server/lint.mjs",
+    "./schema": "./server/schema.mjs",
+    "./save-service": "./server/save-service.mjs",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "ftbquest": "cli.mjs",
+    "ftbquest-preview": "server.mjs"
+  },
+  "files": [
+    "app.js",
+    "index.html",
+    "styles.css",
+    "cli.mjs",
+    "server.mjs",
+    "install.mjs",
+    "install.ps1",
+    "parse-snbt.mjs",
+    "quest-preview.example.json",
+    "components/",
+    "lib/",
+    "server/",
+    "styles/",
+    "fixtures/",
+    "skills/",
+    "AGENTS.md",
+    "ARCHITECTURE.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "minecraft",
+    "ftb-quests",
+    "snbt",
+    "quest-editor",
+    "cli"
+  ],
   "scripts": {
     "start": "node server.mjs",
     "setup": "node install.mjs",

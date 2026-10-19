@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { createServer } from "node:http";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile, readdir, realpath, stat } from "node:fs/promises";
@@ -13,7 +14,8 @@ import { prepareDemoQuestDir } from "./server/source.mjs";
 const appDir = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.includes("-h")) {
-  console.log("Usage: node server.mjs [--demo | --instance-root PATH | --data-dir PATH]");
+  console.log("Usage: ftbquest-preview [--demo | --instance-root PATH | --data-dir PATH]");
+  console.log("       node server.mjs [--demo | --instance-root PATH | --data-dir PATH]");
   console.log("       QUEST_PREVIEW_INSTANCE_ROOT, QUEST_PREVIEW_DATA_DIR, and quest-preview.local.json are also supported.");
   process.exit(0);
 }
