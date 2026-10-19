@@ -24,7 +24,7 @@
 
 ### 从 npm 安装（推荐）
 
-> 0.1.0 首次发布可能仍在 npm 审核中；如果暂时安装不到，使用下方的 tarball 或 `npm link`。
+> 0.1.0 已发布到 npm。命令是 `ftbquest`（单数），不是 `ftbquests`；浏览器入口别名是 `ftbquest-preview`。
 
 ```sh
 npm install -g ftb-quests-preview
@@ -277,6 +277,15 @@ ftbquest install-skill --target "C:\Users\me\.agents\skills"
 **想重新选择实例**
 
 运行 `ftbquest` 后打开 <http://127.0.0.1:4173/setup.html>，或删除用户配置目录里的 `quest-preview.local.json`。源码目录也可以用 `npm run setup -- --replace`（旧配置会先备份）。
+
+**`ftbquests` 找不到 / 运行没反应**
+
+命令是 `ftbquest`（单数）。如果之前安装到了 `0.0.0-stage` 占位包，重新安装：
+
+```sh
+npm install -g ftb-quests-preview@0.1.0
+ftbquest --version
+```
 
 **保存后游戏里没变化**
 

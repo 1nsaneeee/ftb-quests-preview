@@ -18,7 +18,8 @@ ftbquest --version
 ```
 
 如果提示 command not found：
-- npm 安装版：`npm install -g ftb-quests-preview`
+- 命令是 `ftbquest`（单数），不是 `ftbquests`
+- npm 安装版：`npm install -g ftb-quests-preview@0.1.0`
 - 源码目录：`npm link`
 - 不要改回 `node cli.mjs`
 
