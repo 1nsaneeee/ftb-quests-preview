@@ -1,6 +1,6 @@
 import { QuestDetails } from "./components/quest-details.js";
 import { QuestEditor } from "./components/quest-editor.js";
-import { PreviewControls } from "./components/preview-controls.js";
+import { PreviewControls, normalizeWidth, widthBoundsFor } from "./components/preview-controls.js";
 import { QuestMap } from "./components/quest-map.js";
 import { QuestNavigation } from "./components/quest-navigation.js";
 import { MinecraftText, splitPages } from "./lib/minecraft-text.js";
@@ -9,11 +9,11 @@ const ui = {
   chapterList: document.querySelector("#chapterList"), search: document.querySelector("#search"),
   sourcePath: document.querySelector("#sourcePath"), connectionState: document.querySelector("#connectionState"),
   questCount: document.querySelector("#questCount"), locale: document.querySelector("#locale"),
-  panelWidth: document.querySelector("#panelWidth"), widthValue: document.querySelector("#widthValue"),
-  guiScale: document.querySelector("#guiScale"), scaleValue: document.querySelector("#scaleValue"),
+  panelWidth: document.querySelector("#panelWidth"), panelWidthNumber: document.querySelector("#panelWidthNumber"), widthEnds: document.querySelector("#widthEnds"),
+  scaleGroup: document.querySelector("#guiScaleGroup"), scaleButtons: [...document.querySelectorAll("[data-scale]")],
   pageValue: document.querySelector("#pageValue"), prevPage: document.querySelector("#prevPage"), nextPage: document.querySelector("#nextPage"),
   draft: document.querySelector("#draft"), resetDraft: document.querySelector("#resetDraft"),
-  crumbChapter: document.querySelector("#crumbChapter"), crumbQuest: document.querySelector("#crumbQuest"),
+  crumbGroup: document.querySelector("#crumbGroup"), crumbChapter: document.querySelector("#crumbChapter"), crumbQuest: document.querySelector("#crumbQuest"),
   renderNote: document.querySelector("#renderNote"), canvasSize: document.querySelector("#canvasSize"),
   canvasScroll: document.querySelector("#canvasScroll"), canvasStage: document.querySelector("#canvasStage"),
   detailsViewButton: document.querySelector("#detailsViewButton"), mapViewButton: document.querySelector("#mapViewButton"),
@@ -168,6 +168,8 @@ function controlSnapshot() {
 function renderCrumbs() {
   const selected = findQuest();
   if (!selected) return;
+  const group = state.data.chapterGroups?.find(candidate => candidate.id === selected.chapter.group);
+  ui.crumbGroup.textContent = group?.title ?? "未分组";
   ui.crumbChapter.textContent = selected.chapter.title;
   ui.crumbQuest.textContent = selected.quest.title;
   ui.renderNote.textContent = `FTB Quests · ${state.data.locale} · 离线近似`;
@@ -177,6 +179,8 @@ function render() {
   if (!state.data) return;
   const viewData = effectiveData();
   const selected = findQuest();
+  const widthBounds = widthBoundsFor(selected?.quest.minWidth);
+  state.logicalWidth = normalizeWidth(state.logicalWidth, widthBounds);
   state.draft = descriptionText(selected?.quest.description ?? []);
   navigation.update(viewData, state.selectedQuestId);
   renderCrumbs();
@@ -278,8 +282,8 @@ const navigation = new QuestNavigation({
 });
 
 const controls = new PreviewControls({
-  locale: ui.locale, panelWidth: ui.panelWidth, widthValue: ui.widthValue, guiScale: ui.guiScale,
-  scaleValue: ui.scaleValue, pageValue: ui.pageValue, prevPage: ui.prevPage, nextPage: ui.nextPage,
+  locale: ui.locale, panelWidth: ui.panelWidth, panelWidthNumber: ui.panelWidthNumber, widthEnds: ui.widthEnds,
+  scaleGroup: ui.scaleGroup, scaleButtons: ui.scaleButtons, pageValue: ui.pageValue, prevPage: ui.prevPage, nextPage: ui.nextPage,
   draft: ui.draft, resetDraft: ui.resetDraft,
 }, {
   locale: async locale => {

@@ -1,8 +1,16 @@
 {
   "name": "ftb-quests-preview",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local FTB Quests preview/editor with an AI-first CLI.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1nsaneeee/ftb-quests-preview.git"
+  },
+  "homepage": "https://github.com/1nsaneeee/ftb-quests-preview#readme",
+  "bugs": {
+    "url": "https://github.com/1nsaneeee/ftb-quests-preview/issues"
+  },
   "type": "module",
   "main": "./server/store.mjs",
   "exports": {

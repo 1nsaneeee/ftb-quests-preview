@@ -19,7 +19,7 @@ ftbquest --version
 
 如果提示 command not found：
 - 命令是 `ftbquest`（单数），不是 `ftbquests`
-- npm 安装版：`npm install -g ftb-quests-preview@0.1.0`
+- npm 安装版：`npm install -g ftb-quests-preview@0.1.1`（发布后）
 - 源码目录：`npm link`
 - 不要改回 `node cli.mjs`
 
@@ -32,8 +32,10 @@ ftbquest skill
 它会打印完整使用说明；`ftbquest skill --json` 返回路径和内容。安装到 agent 目录用：
 
 ```sh
-ftbquest install-skill
+ftbquest skill install
 ```
+
+旧命令 `ftbquest install-skill` 仍可用。安装到已存在且不同的目录会拒绝覆盖；完全相同的安装目标会安全地作为幂等成功处理。
 
 ## 数据源
 
@@ -47,7 +49,7 @@ ftbquest list --demo
 
 - `--data-dir` 指向包含 `chapters/` 的 quests 数据根目录，不是 `.minecraft`。
 - `--instance-root` 指向 `.minecraft`（或实例根），CLI 会自动找 `config/ftbquests/quests`。
-- 不传时读取当前目录 / 项目 / 用户配置目录里的 `quest-preview.local.json`；都没有时运行 `ftbquest` 会打开网页设置页。
+- 不传时读取当前目录 / 项目 / 用户配置目录里的 `quest-preview.local.json`；无配置且当前目录也没有有效 quests 数据时，运行 `ftbquest` 会打开网页设置页。有效的当前目录数据会被自动识别并保留。
 - 相对路径按调用时的当前目录解析。
 
 ## 启动预览（人工）
@@ -129,7 +131,8 @@ ftbquest lint --data-dir "$QUESTS" --json --strict
 | `ftbquest lint [--json] [--strict]` | 重复 ID、缺失/循环依赖、坐标、形状、类型、标题等 |
 | `ftbquest schema [section]` | quest/chapter/task/reward/patch 字段与枚举 |
 | `ftbquest skill` | 打印这份使用说明（`--json` 返回内容与路径） |
-| `ftbquest install-skill` | 把 skill 复制到 `~/.agents/skills`（`--target` 可指定） |
+| `ftbquest skill install` | 安装 skill 到 `~/.agents/skills`（`--target` 可指定）；同内容幂等，不覆盖定制目录 |
+| `ftbquest install-skill` | `skill install` 的兼容别名 |
 | `ftbquest patch --file <path> [--apply]` | 默认 dry-run；`--apply` 才写 |
 | `ftbquest --version` | 版本 |
 

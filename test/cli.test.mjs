@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { cp, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -91,9 +91,45 @@ test("lint and schema expose diagnostics and the field model", async t => {
   assert.match(guide.content, /ftbquest patch/);
 
   const skillTarget = join(questDir, "..", "skill-target");
-  const installed = await runCli(t, ["install-skill", "--target", skillTarget, "--json"]);
+  const installed = await runCli(t, ["skill", "install", "--target", skillTarget, "--json"]);
   assert.equal(installed.code, 0);
+  const installedPayload = parseJson(installed);
+  assert.equal(installedPayload.command, "skill install");
+  assert.equal(installedPayload.unchanged, false);
   assert.match(await readFile(join(skillTarget, "ftbquests", "SKILL.md"), "utf8"), /^---\nname: ftbquests/m);
+
+  const unchanged = await runCli(t, ["skill", "install", "--target", skillTarget, "--json"]);
+  assert.equal(unchanged.code, 0);
+  assert.equal(parseJson(unchanged).unchanged, true);
+
+  const legacyAlias = await runCli(t, ["install-skill", "--target", skillTarget, "--json"]);
+  assert.equal(legacyAlias.code, 0);
+  assert.equal(parseJson(legacyAlias).unchanged, true);
+});
+
+test("skill help remains available with JSON output", async t => {
+  const plain = await runCli(t, ["skill"]);
+  assert.equal(plain.code, 0);
+  assert.match(plain.stdout, /^---\nname: ftbquests/m);
+  const json = await runCli(t, ["skill", "--json"]);
+  assert.equal(json.code, 0);
+  assert.equal(parseJson(json).command, "skill");
+});
+
+test("install-skill refuses to overwrite a customized target", async t => {
+  const root = await mkdtemp(join(tmpdir(), "quest-cli-skill-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const target = join(root, "skills");
+  const customSkill = join(target, "ftbquests", "SKILL.md");
+  await mkdir(join(target, "ftbquests"), { recursive: true });
+  await writeFile(customSkill, "user customized instructions\n");
+  await writeFile(join(target, "ftbquests", "private-notes.md"), "keep this file\n");
+
+  const result = await runCli(t, ["skill", "install", "--target", target, "--json"]);
+  assert.equal(result.code, 1);
+  assert.equal(parseJson(result).error.code, "skill_target_exists");
+  assert.equal(await readFile(customSkill, "utf8"), "user customized instructions\n");
+  assert.equal(await readFile(join(target, "ftbquests", "private-notes.md"), "utf8"), "keep this file\n");
 });
 
 test("patch defaults to dry-run, writes on --apply, and is idempotent", async t => {

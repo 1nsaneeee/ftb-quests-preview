@@ -36,7 +36,7 @@
           </div>
           <label class="search-field">
             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"></circle><path d="m13 13 4 4"></path></svg>
-            <input id="search" type="search" placeholder="搜索章节或任务" autocomplete="off" />
+            <input id="search" type="search" placeholder="搜索分组、章节或任务" autocomplete="off" />
             <kbd>/</kbd>
           </label>
           <div class="chapter-list" id="chapterList" aria-label="任务章节"></div>
@@ -45,7 +45,7 @@
 
         <section class="preview-workspace" aria-label="任务详情预览">
           <div class="canvas-toolbar">
-            <div class="crumbs"><span id="crumbChapter">—</span><span class="crumb-slash">/</span><strong id="crumbQuest">—</strong></div>
+              <div class="crumbs"><span id="crumbGroup">—</span><span class="crumb-slash">/</span><span id="crumbChapter">—</span><span class="crumb-slash">/</span><strong id="crumbQuest">—</strong></div>
             <div class="view-switch" role="group" aria-label="预览视图">
               <button class="view-button active" id="detailsViewButton" type="button" aria-pressed="true">任务详情</button>
               <button class="view-button" id="mapViewButton" type="button" aria-pressed="false">章节任务图</button>
@@ -96,16 +96,20 @@
           </div>
 
           <div class="control-group width-control">
-            <div class="control-label-row"><label for="panelWidth">面板逻辑宽度</label><output id="widthValue">220 px</output></div>
+            <div class="control-label-row"><label for="panelWidth">面板逻辑宽度</label><label class="width-number-label" for="panelWidthNumber">像素</label></div>
             <input id="panelWidth" type="range" min="180" max="640" step="4" value="220" />
-            <div class="range-ends"><span>180</span><span>640</span></div>
+            <div class="width-input-row"><span class="range-ends" id="widthEnds">180–640 px</span><input id="panelWidthNumber" type="number" min="180" max="640" step="4" value="220" inputmode="numeric" aria-label="面板逻辑宽度（像素）" /></div>
           </div>
 
-          <div class="control-group scale-control">
-            <div class="control-label-row"><label for="guiScale">GUI 缩放</label><output id="scaleValue">1×</output></div>
-            <input id="guiScale" type="range" min="1" max="4" step="1" value="1" />
-            <div class="scale-ticks"><span>1×</span><span>2×</span><span>3×</span><span>4×</span></div>
-          </div>
+          <fieldset class="control-group scale-control" id="guiScaleGroup">
+            <legend>GUI 缩放</legend>
+            <div class="scale-options" role="group" aria-label="GUI 缩放">
+              <button type="button" class="scale-option" data-scale="1" aria-pressed="true">1×</button>
+              <button type="button" class="scale-option" data-scale="2" aria-pressed="false">2×</button>
+              <button type="button" class="scale-option" data-scale="3" aria-pressed="false">3×</button>
+              <button type="button" class="scale-option" data-scale="4" aria-pressed="false">4×</button>
+            </div>
+          </fieldset>
 
           <div class="page-control">
             <span>说明页</span>

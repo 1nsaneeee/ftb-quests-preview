@@ -9,6 +9,7 @@ import { basename, dirname, extname, isAbsolute, join, normalize, relative, reso
 import { fileURLToPath } from "node:url";
 import { parseSnbt } from "./parse-snbt.mjs";
 import { loadPreviewConfig } from "./server/config.mjs";
+import { readChapterGroups } from "./server/chapter-groups.mjs";
 import { revisionHash, saveQuestChanges } from "./server/save-service.mjs";
 import { prepareDemoQuestDir } from "./server/source.mjs";
 
@@ -345,6 +346,7 @@ async function questData(locale) {
     : parseSnbt(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(localeBytes), `lang/${usedLocale}.snbt`);
   localeCache.set(usedLocale, Promise.resolve(strings));
   const { strings: fallback } = usedLocale === "en_us" ? { strings } : await loadLocale("en_us");
+  const chapterGroups = await readChapterGroups({ questDir: QUEST_DIR, localeStrings: strings, fallbackStrings: fallback });
   const revisions = Object.fromEntries(chapters.map(({ file, bytes }) => [`chapters/${file}`, revisionHash(bytes)]));
   revisions[`lang/${usedLocale}.snbt`] = localeBytes === null ? null : revisionHash(localeBytes);
   return {
@@ -353,6 +355,7 @@ async function questData(locale) {
     defaultQuestShape: defaults.default_quest_shape ?? null,
     gridScale: defaults.grid_scale ?? null,
     supportedLocales,
+    chapterGroups,
     chapters: chapters.map(({ file, data }) => ({
       id: data.id,
       file,
@@ -624,6 +627,7 @@ const server = createServer(async (request, response) => {
         return;
       }
       jsonStatus(response, 200, { ok: true, restart: true, configPath });
+      process.send?.({ type: "setup-restart", configPath });
       setTimeout(() => process.exit(75), 150);
       return;
     }
@@ -758,12 +762,20 @@ const server = createServer(async (request, response) => {
   }
 });
 
+process.on("disconnect", () => {
+  for (const client of clients) client.end();
+  if (!server.listening) {
+    process.exit(0);
+    return;
+  }
+  server.close(() => process.exit(0));
+});
+
 const previewUrl = `http://${HOST}:${PORT}`;
 server.on("error", error => {
   if (error.code === "EADDRINUSE") {
-    console.error(`Port ${PORT} is already in use; opening the existing preview at ${previewUrl}`);
-    if (openOnStart) openLocalBrowser(previewUrl);
-    process.exit(openOnStart ? 0 : 1);
+    console.error(`Port ${PORT} is already in use. Set QUEST_PREVIEW_PORT to another port, or close the known Quest Preview using it.`);
+    process.exit(1);
   }
   throw error;
 });

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { cp, mkdir, readFile } from "node:fs/promises";
+import { cp, lstat, mkdir, readFile, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -37,7 +37,8 @@ Commands:
   lint                  Report quest-pack issues (--strict fails on errors)
   schema [section]      Print the FTB Quests data model and patch limits
   skill                 Print the agent skill/usage guide
-  install-skill         Copy the skill into the local agent skills directory
+  skill install          Install the skill into an agent skills directory
+  install-skill         Legacy alias for "skill install"
   patch --file <path>   Validate/apply a JSON patch (dry-run by default)
 
 Source options (same resolution as server.mjs):
@@ -51,7 +52,7 @@ Output options:
   --chapter <id>            Filter list output to one chapter
   --direction <dir>         For deps: up, down, or both (default both)
   --depth <n>               For deps: traversal depth, 1-20 (default 1)
-  --target <dir>            For install-skill: target skills directory
+  --target <dir>            For "skill install": target skills directory
   --no-open                 Start the preview without opening a browser
   --version                 Print the package version
 
@@ -405,7 +406,11 @@ async function commandLint(options) {
 }
 
 async function commandSkill(options, positionals) {
-  if (positionals.length !== 0) throw new CliError("usage", "skill takes no positional arguments", {}, 2);
+  if (positionals[0] === "install") {
+    await commandInstallSkill(options, positionals.slice(1), "skill install");
+    return;
+  }
+  if (positionals.length !== 0) throw new CliError("usage", "skill takes no positional arguments (use 'skill install' to install it)", {}, 2);
   const path = join(appDir, "skills", "ftbquests", "SKILL.md");
   let content;
   try {
@@ -418,8 +423,8 @@ async function commandSkill(options, positionals) {
   });
 }
 
-async function commandInstallSkill(options, positionals) {
-  if (positionals.length !== 0) throw new CliError("usage", "install-skill takes no positional arguments", {}, 2);
+async function commandInstallSkill(options, positionals, command = "install-skill") {
+  if (positionals.length !== 0) throw new CliError("usage", `${command} takes no positional arguments`, {}, 2);
   const source = join(appDir, "skills", "ftbquests");
   if (!existsSync(source)) throw new CliError("skill_not_found", `Bundled skill not found at ${source}`, { path: source }, 1);
   const agents = join(homedir(), ".agents", "skills");
@@ -428,10 +433,53 @@ async function commandInstallSkill(options, positionals) {
     ?? (existsSync(join(homedir(), ".agents")) ? agents : existsSync(join(homedir(), ".dsh")) ? dsh : agents);
   const target = join(targetParent, "ftbquests");
   await mkdir(targetParent, { recursive: true });
-  await cp(source, target, { recursive: true, force: true });
-  emit(options, { ok: true, command: "install-skill", source, target }, value => {
-    process.stdout.write(`Skill installed to ${value.target}\n`);
+  let targetExists = false;
+  try {
+    const targetInfo = await lstat(target);
+    targetExists = true;
+    if (!targetInfo.isDirectory() || targetInfo.isSymbolicLink() || !(await directoriesMatch(source, target))) {
+      throw new CliError("skill_target_exists", `Skill target already exists and differs from the bundled skill: ${target}. Back it up or choose another --target.`, { target }, 1);
+    }
+  } catch (error) {
+    if (error instanceof CliError) throw error;
+    if (error.code !== "ENOENT") throw error;
+  }
+  if (!targetExists) {
+    try {
+      await cp(source, target, { recursive: true, errorOnExist: true, force: false });
+    } catch (error) {
+      if (error.code === "EEXIST" || error.code === "ERR_FS_CP_EEXIST") {
+        throw new CliError("skill_target_exists", `Skill target appeared during installation; no files were replaced: ${target}. Choose another --target.`, { target }, 1);
+      }
+      throw error;
+    }
+  }
+  emit(options, { ok: true, command, source, target, unchanged: targetExists }, value => {
+    process.stdout.write(value.unchanged ? `Skill already matches at ${value.target}\n` : `Skill installed to ${value.target}\n`);
   });
+}
+
+async function directoriesMatch(source, target) {
+  const sourceEntries = await readdir(source, { withFileTypes: true });
+  const targetEntries = await readdir(target, { withFileTypes: true });
+  if (sourceEntries.length !== targetEntries.length) return false;
+  const targetByName = new Map(targetEntries.map(entry => [entry.name, entry]));
+  for (const sourceEntry of sourceEntries) {
+    const targetEntry = targetByName.get(sourceEntry.name);
+    if (!targetEntry) return false;
+    if (sourceEntry.isDirectory() && targetEntry.isDirectory()) {
+      if (!(await directoriesMatch(join(source, sourceEntry.name), join(target, targetEntry.name)))) return false;
+    } else if (sourceEntry.isFile() && targetEntry.isFile()) {
+      const [sourceBytes, targetBytes] = await Promise.all([
+        readFile(join(source, sourceEntry.name)),
+        readFile(join(target, targetEntry.name)),
+      ]);
+      if (!sourceBytes.equals(targetBytes)) return false;
+    } else {
+      return false;
+    }
+  }
+  return true;
 }
 
 async function commandSchema(options, positionals) {  if (positionals.length > 1) throw new CliError("usage", "schema accepts at most one section", {}, 2);

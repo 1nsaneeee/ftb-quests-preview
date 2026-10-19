@@ -4,7 +4,7 @@ import { once } from "node:events";
 import { spawn } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { createServer } from "node:net";
-import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,6 +43,29 @@ async function startServer(t, args) {
   assert.match(output, /Quest preview ready/, output);
   return { base: `http://127.0.0.1:${port}`, origin: `http://127.0.0.1:${port}` };
 }
+
+test("/api/data includes localized chapter groups without assigning ungrouped chapters", async t => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "quest-preview-groups-api-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
+  const questDir = join(tempRoot, "quests");
+  await mkdir(join(questDir, "chapters"), { recursive: true });
+  await mkdir(join(questDir, "lang"), { recursive: true });
+  await writeFile(join(questDir, "chapter_groups.snbt"), '[{ id: "group-a" title: "Inline group" }]');
+  await writeFile(join(questDir, "chapters", "a-grouped.snbt"), '{ id: "grouped" group: "group-a" quests: [] }');
+  await writeFile(join(questDir, "chapters", "b-ungrouped.snbt"), '{ id: "ungrouped" quests: [] }');
+  await writeFile(join(questDir, "lang", "en_us.snbt"), '{ "chapter_group.group-a.title": "English group" }');
+  await writeFile(join(questDir, "lang", "zh_cn.snbt"), '{ "chapter_group.group-a.title": "中文分组" }');
+  const server = await startServer(t, ["--data-dir", questDir]);
+
+  const response = await fetch(`${server.base}/api/data?locale=zh_cn`);
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload.chapterGroups, [{ id: "group-a", title: "中文分组" }]);
+  assert.deepEqual(payload.chapters.map(chapter => [chapter.id, chapter.group]), [
+    ["grouped", "group-a"],
+    ["ungrouped", null],
+  ]);
+});
 
 function postHeaders(server, token, origin = server.origin) {
   return { "content-type": "application/json", origin, "x-quest-preview-token": token };

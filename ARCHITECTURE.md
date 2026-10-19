@@ -3,9 +3,9 @@
 The browser app is served as native ES modules; there is no bundler or framework runtime.
 
 - `app.js` is the composition root and the single owner of shared selection, locale, page, width, scale, and in-memory draft state. It fetches `/api/data`, watches `/api/events`, wires cross-component callbacks, and fans snapshots out to mounted components.
-- `components/quest-navigation.js` owns the searchable chapter/quest list and emits quest selection.
+- `components/quest-navigation.js` owns the searchable group/chapter/quest disclosures and emits quest selection. Group order follows the `chapterGroups` API list; chapters retain API order, and chapters with a missing or unknown group stay visible under “未分组”.
 - `components/quest-details.js` owns the detail canvas and its resize/draw lifecycle. It delegates Minecraft text shaping to `lib/minecraft-text.js` and uses the shared read-only asset loader passed at construction.
-- `components/preview-controls.js` owns locale, width, GUI-scale, paging, and the shared description draft control. It reports intent through callbacks; it does not fetch or mutate source files.
+- `components/preview-controls.js` owns locale, slider-plus-number panel width, four-button GUI scale, paging, and the shared description draft control. It reports intent through callbacks; it does not fetch or mutate source files.
 - `components/quest-editor.js` owns the edit inspector fields and save/discard controls. It emits field changes and actions; `app.js` applies drafts and coordinates API calls.
 - `components/quest-map.js` owns chapter selection, graph canvas, node hit-testing, pan/zoom, labels, dependency highlighting, keyboard navigation, and edit-mode node dragging. It receives the API data snapshot and emits selection/position callbacks. Cross-chapter dependencies are listed as navigation buttons; remote nodes are not projected into local coordinates.
 - `lib/minecraft-text.js` contains the text-format, line-wrap, page-break, and local glyph/advance logic used by the detail renderer. The graph intentionally uses browser UI text, not the in-game font renderer.

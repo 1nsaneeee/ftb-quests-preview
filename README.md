@@ -31,15 +31,25 @@ npm install -g ftb-quests-preview
 ftbquest
 ```
 
+当前 npm registry 发布的是 0.1.0；本次 0.1.1 新增的 `ftbquest skill install` 和 UI 改动，在 0.1.1 发布到 npm 前尚不包含于 registry 包。要提前使用这些新功能，请安装下方的 0.1.1 GitHub Release tarball，或在源码目录运行 `npm link`。
+
 `ftbquest` 默认会启动本地预览并打开浏览器。第一次启动没有数据源时，网页会显示设置页：选择 Minecraft 实例、单独的 quests 数据目录，或内置 demo。配置保存在用户配置目录，不需要再运行安装脚本，也不会写进 npm 包目录。
 
-Windows 用户可以在安装后用 `ftbquest install-skill` 把 skill 安装到 agent 目录；也可以手动复制 `skills/ftbquests/` 到 `%USERPROFILE%\.agents\skills\`。CLI 随时可以用 `ftbquest skill` 打印说明。
+安装后用 `ftbquest skill install` 把 skill 安装到默认 agent 目录 `~/.agents/skills/ftbquests`（Windows 为 `%USERPROFILE%\.agents\skills\ftbquests`）；也可用 `--target` 指定 skills 目录。CLI 随时可以用 `ftbquest skill` 打印说明。旧命令 `ftbquest install-skill` 仍作为兼容别名保留；完全相同的目标会幂等成功，不同或含定制文件的目标会拒绝覆盖。
 
 也可以先下载 tarball 离线安装：
 
 ```sh
-npm install -g .\ftb-quests-preview-0.1.0.tgz
+npm install -g .\ftb-quests-preview-0.1.1.tgz
 ```
+
+也可以直接从 GitHub Release 安装 0.1.1 tarball：
+
+```sh
+npm install -g https://github.com/1nsaneeee/ftb-quests-preview/releases/download/v0.1.1/ftb-quests-preview-0.1.1.tgz
+```
+
+源码本身没有第三方 npm 运行依赖，但要使用命令行入口仍需安装 npm 包或在源码目录执行 `npm link`；直接下载源码不会提供全局 `ftbquest` 命令。
 
 卸载：
 
@@ -60,7 +70,7 @@ ftbquest        # 启动预览；首次启动在网页里配置
 
 ### 数据源
 
-- 首次运行：`ftbquest` 打开设置页，选择实例、quests 目录或 demo。
+- 没有已保存配置且当前目录没有有效 quests 数据时：`ftbquest` 打开设置页，选择实例、quests 目录或 demo；当前目录里已有有效 quests 数据时会自动识别。
 - 重新配置：运行 `ftbquest` 后打开 <http://127.0.0.1:4173/setup.html>。
 - 脚本/AI：可直接传 `--data-dir "PATH/TO/quests"`、`--instance-root "PATH/TO/.minecraft"` 或 `--demo`。
 - 显式配置路径：`--config PATH` 或环境变量 `FTBQUEST_CONFIG`。
@@ -93,7 +103,7 @@ ftbquest
 
 默认启动本地预览并打开浏览器（`--no-open` 可关闭）。`ftbquest-preview` 是同一个入口的别名；源码目录也可以用 `npm start`。停止服务：在终端按 `Ctrl+C`。
 
-首次启动没有数据源时，浏览器会打开设置页。之后启动会读取配置；需要重新配置时打开 <http://127.0.0.1:4173/setup.html>。
+没有有效配置或当前目录 quests 数据时，浏览器会打开设置页。之后启动会读取配置；需要重新配置时打开 <http://127.0.0.1:4173/setup.html>。
 
 启动时的数据源优先级从高到低：
 
@@ -131,6 +141,7 @@ ftbquest deps demo_first --direction both --depth 2 --json
 ftbquest lint --json --strict
 ftbquest schema patch --json
 ftbquest skill                                # 打印 AI 使用说明
+ftbquest skill install --target "C:\Users\me\.agents\skills" --json # 安装 AI skill
 ftbquest patch --file patch.json --json          # dry-run
 ftbquest patch --file patch.json --apply --json  # 真正写入
 ```
@@ -150,6 +161,8 @@ ftbquest patch --file patch.json --apply --json  # 真正写入
 | `lint` | 检查重复 ID、缺失/循环依赖、非法坐标、未知形状/任务/奖励类型、无任何语言标题等；`--strict` 在 error 时退出 1 |
 | `schema [section]` | 输出 FTB Quests 字段模型、枚举、task/reward 类型和 patch 限制 |
 | `skill` | 打印内置的 AI 使用说明；`--json` 返回路径和内容 |
+| `skill install` | 安装 AI skill；`--target` 指定 skills 目录，`--json` 返回结果；不同的已有目录不会被覆盖 |
+| `install-skill` | `skill install` 的兼容别名 |
 | `patch --file <path>` | 应用 JSON patch；默认 dry-run，`--apply` 才写 |
 
 ### patch 格式
@@ -188,14 +201,16 @@ ftbquest patch --file patch.json --apply --json  # 真正写入
 安装 skill 不需要本地构建，直接用 CLI：
 
 ```sh
-ftbquest install-skill
+ftbquest skill install
 ```
 
-默认复制到 `%USERPROFILE%\.agents\skills\ftbquests`（没有 `.agents` 时尝试 `.dsh`）。也可以指定目录：
+默认复制到 `~/.agents/skills/ftbquests`（Windows 为 `%USERPROFILE%\.agents\skills\ftbquests`；若只有 `.dsh` 而无 `.agents`，则使用 `.dsh/skills/ftbquests`）。也可以指定目录：
 
 ```sh
-ftbquest install-skill --target "C:\Users\me\.agents\skills"
+ftbquest skill install --target "C:\Users\me\.agents\skills"
 ```
+
+已存在且与内置 skill 完全相同的目录会幂等成功；内容不同或目录含额外定制文件时会拒绝覆盖。旧版 `ftbquest install-skill` 仍可用。
 
 没有 skill 系统时，直接让 agent 运行 `ftbquest skill` 或阅读 `skills/ftbquests/SKILL.md` 也可以。
 
@@ -332,7 +347,7 @@ ftbquest lint --json --strict
 ftbquest schema patch --json
 ftbquest patch --file patch.json --json          # dry-run
 ftbquest patch --file patch.json --apply --json  # write
-ftbquest install-skill                           # install the agent skill
+ftbquest skill install                           # install the agent skill
 ```
 
 Patch accepts `questId` plus `x`, `y`, `title`, `subtitle`, and `description`; dry-run returns changed files and line hunks, and `--apply` creates backups. See the Chinese sections above for path rules, conflict handling, recovery, and fidelity limits.
