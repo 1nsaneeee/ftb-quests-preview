@@ -10,24 +10,30 @@ async function makeQuestDir(path, { lang = false } = {}) {
   if (lang) await mkdir(join(path, "lang"), { recursive: true });
 }
 
-test("uses fixture demo when no source is configured and accepts inline-only quest data", async t => {
+test("requires setup when no source is configured and accepts explicit demo and inline-only data", async t => {
   const root = await mkdtemp(join(tmpdir(), "quest-preview-config-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const projectDir = join(root, "app");
   const fixture = join(projectDir, "fixtures", "quests");
   const cwd = join(root, "empty");
+  const configPath = join(root, "missing-config.json");
   await makeQuestDir(fixture);
   await mkdir(cwd, { recursive: true });
 
-  const demo = await loadPreviewConfig({ argv: [], env: {}, cwd, projectDir, fixtureQuestDir: fixture });
+  const unconfigured = await loadPreviewConfig({ argv: [], env: {}, cwd, projectDir, fixtureQuestDir: fixture, configPath });
+  assert.equal(unconfigured.needsSetup, true);
+  assert.equal(unconfigured.questDir, null);
+  assert.equal(unconfigured.configPath, configPath);
+
+  const demo = await loadPreviewConfig({ argv: ["--demo"], env: {}, cwd, projectDir, fixtureQuestDir: fixture, configPath });
   assert.equal(demo.isDemo, true);
   assert.equal(demo.questDir, resolve(fixture));
-  assert.equal(demo.source, "demo");
+  assert.equal(demo.source, "cli");
 
   const inlineData = join(root, "inline-data");
   await makeQuestDir(inlineData);
   const configured = await loadPreviewConfig({
-    argv: ["--data-dir", inlineData], env: {}, cwd, projectDir, fixtureQuestDir: fixture,
+    argv: ["--data-dir", inlineData], env: {}, cwd, projectDir, fixtureQuestDir: fixture, configPath,
   });
   assert.equal(configured.isDemo, false);
   assert.equal(configured.questDir, resolve(inlineData));
@@ -57,7 +63,8 @@ test("resolves config paths from project directory and applies CLI over environm
     dataDir: "../config-data",
   }));
 
-  const fromConfig = await loadPreviewConfig({ argv: [], env: {}, cwd, projectDir, fixtureQuestDir: fixture });
+  const configPath = join(projectDir, "quest-preview.local.json");
+  const fromConfig = await loadPreviewConfig({ argv: [], env: {}, cwd, projectDir, fixtureQuestDir: fixture, configPath });
   assert.equal(fromConfig.instanceRoot, resolve(configInstance));
   assert.equal(fromConfig.questDir, resolve(configData));
   assert.equal(fromConfig.source, "local-config");
@@ -68,6 +75,7 @@ test("resolves config paths from project directory and applies CLI over environm
     cwd,
     projectDir,
     fixtureQuestDir: fixture,
+    configPath,
   });
   assert.equal(fromEnvAndCli.instanceRoot, resolve(cwd, "../cli-instance"));
   assert.equal(fromEnvAndCli.questDir, resolve(cwd, "../env-data"));
@@ -87,5 +95,6 @@ test("explicit missing paths fail instead of silently selecting the fixture", as
     cwd: root,
     projectDir,
     fixtureQuestDir: fixture,
+    configPath: join(root, "missing-config.json"),
   }), /does not exist/);
 });

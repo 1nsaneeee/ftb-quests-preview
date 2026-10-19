@@ -1,0 +1,98 @@
+body.setup-page {
+  min-height: 100vh;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 32px 18px;
+  background: radial-gradient(circle at 50% 0%, #242b29 0, #171a1a 52%);
+}
+
+.setup-shell {
+  width: min(680px, 100%);
+  padding: 28px 30px 24px;
+  background: #1d2121;
+  border: 1px solid #454b45;
+  box-shadow: 0 24px 70px #0008;
+}
+
+.setup-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.setup-brand h1 {
+  margin: 2px 0 0;
+  color: #e5e9e5;
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.setup-intro {
+  margin: 0 0 20px;
+  color: #aeb7af;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.setup-form { display: grid; gap: 16px; }
+.setup-modes {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.setup-modes legend {
+  margin-bottom: 8px;
+  color: #c1c8c1;
+  font-size: 11px;
+}
+.setup-mode {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: #202524;
+  border: 1px solid #3d4541;
+  cursor: pointer;
+}
+.setup-mode:has(input:checked) {
+  border-color: #a0803e;
+  background: #2a2820;
+}
+.setup-mode input { margin-top: 3px; accent-color: #d3aa4b; }
+.setup-mode span { display: grid; gap: 3px; }
+.setup-mode strong { color: #e0e5df; font-size: 12px; font-weight: 600; }
+.setup-mode small { color: #9aa49c; font-size: 11px; }
+
+.setup-field { display: grid; gap: 6px; color: #c4ccc5; font-size: 11px; }
+.setup-field.hidden { display: none; }
+.setup-field input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  color: #e0e5df;
+  background: #191d1c;
+  border: 1px solid #414945;
+  font: 12px var(--mono);
+}
+.setup-field input:focus { border-color: #a0803e; outline: 2px solid #d6ab4e; outline-offset: 1px; }
+
+.setup-actions { display: flex; justify-content: flex-end; }
+.setup-actions button {
+  min-height: 36px;
+  padding: 0 18px;
+  color: #f0d99f;
+  background: #40351f;
+  border: 1px solid #806531;
+  font-size: 12px;
+}
+.setup-actions button:hover:not(:disabled) { background: #514223; }
+.setup-actions button:disabled { opacity: .6; cursor: default; }
+
+.setup-status { min-height: 18px; margin: 0; color: #aeb8b0; font-size: 11px; line-height: 1.5; }
+.setup-status.error { color: #e7a391; }
+.setup-footnote { margin: 18px 0 0; color: #8e988f; font-size: 10px; overflow-wrap: anywhere; }
+.setup-footnote code { color: #c7d0c8; font-family: var(--mono); }

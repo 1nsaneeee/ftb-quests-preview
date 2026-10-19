@@ -89,6 +89,11 @@ test("lint and schema expose diagnostics and the field model", async t => {
   const guide = parseJson(skill);
   assert.match(guide.content, /^---\nname: ftbquests/m);
   assert.match(guide.content, /ftbquest patch/);
+
+  const skillTarget = join(questDir, "..", "skill-target");
+  const installed = await runCli(t, ["install-skill", "--target", skillTarget, "--json"]);
+  assert.equal(installed.code, 0);
+  assert.match(await readFile(join(skillTarget, "ftbquests", "SKILL.md"), "utf8"), /^---\nname: ftbquests/m);
 });
 
 test("patch defaults to dry-run, writes on --apply, and is idempotent", async t => {

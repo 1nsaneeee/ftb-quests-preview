@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Quest Preview · 选择数据源</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles/setup.css" />
+  </head>
+  <body class="setup-page">
+    <main class="setup-shell">
+      <div class="setup-brand">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div>
+          <div class="section-kicker">FTB QUESTS</div>
+          <h1>选择任务数据源</h1>
+        </div>
+      </div>
+      <p class="setup-intro">这是第一次启动。选择一个 Minecraft 实例、单独的 quests 数据目录，或先用 demo 试用。配置会保存在本机用户目录，不会写进安装包。</p>
+
+      <form id="setupForm" class="setup-form">
+        <fieldset class="setup-modes">
+          <legend>数据源</legend>
+          <label class="setup-mode">
+            <input type="radio" name="mode" value="instance" checked />
+            <span><strong>Minecraft 实例</strong><small>选择包含 config/、mods/ 的实例目录</small></span>
+          </label>
+          <label class="setup-mode">
+            <input type="radio" name="mode" value="data" />
+            <span><strong>quests 数据目录</strong><small>直接选择包含 chapters/ 的目录</small></span>
+          </label>
+          <label class="setup-mode">
+            <input type="radio" name="mode" value="demo" />
+            <span><strong>内置 demo</strong><small>使用合成任务，不会碰真实任务文件</small></span>
+          </label>
+        </fieldset>
+
+        <label class="setup-field" data-mode="instance">
+          <span>实例目录</span>
+          <input id="instanceRoot" type="text" spellcheck="false" placeholder="E:\Minecraft\instances\my-pack\.minecraft" />
+        </label>
+
+        <label class="setup-field" data-mode="data">
+          <span>quests 数据目录</span>
+          <input id="dataDir" type="text" spellcheck="false" placeholder="E:\Minecraft\instances\my-pack\.minecraft\config\ftbquests\quests" />
+        </label>
+
+        <label class="setup-field" data-mode="data">
+          <span>可选：实例目录（用于读取字体与贴图）</span>
+          <input id="dataInstanceRoot" type="text" spellcheck="false" placeholder="留空也可以" />
+        </label>
+
+        <div class="setup-actions">
+          <button type="submit" id="setupSubmit">保存并打开预览</button>
+        </div>
+        <p id="setupStatus" class="setup-status" role="status" aria-live="polite"></p>
+      </form>
+
+      <p class="setup-footnote">当前配置：<code id="configPath">读取中…</code></p>
+    </main>
+    <script type="module" src="/setup.js"></script>
+  </body>
+</html>

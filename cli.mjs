@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { cp, mkdir, readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadPreviewConfig } from "./server/config.mjs";
@@ -7,6 +9,7 @@ import { prepareDemoQuestDir } from "./server/source.mjs";
 import { QuestStore } from "./server/store.mjs";
 import { schemaSnapshot } from "./server/schema.mjs";
 import { saveQuestChanges } from "./server/save-service.mjs";
+import { runPreview } from "./preview.mjs";
 
 const appDir = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const fixtureQuestDir = join(appDir, "fixtures", "quests");
@@ -22,9 +25,11 @@ class CliError extends Error {
 }
 
 const HELP = `Usage: ftbquest <command> [options]
+       ftbquest                 Start the preview and open the browser
        node cli.mjs <command> [options]
 
 Commands:
+  serve                 Start the preview (same as running ftbquest with no command)
   list                  List chapters and quests
   show <questId>        Show one quest (add --raw for the raw SNBT model)
   search <query>        Search quests (--in id,title,subtitle,description,tasks,rewards)
@@ -32,6 +37,7 @@ Commands:
   lint                  Report quest-pack issues (--strict fails on errors)
   schema [section]      Print the FTB Quests data model and patch limits
   skill                 Print the agent skill/usage guide
+  install-skill         Copy the skill into the local agent skills directory
   patch --file <path>   Validate/apply a JSON patch (dry-run by default)
 
 Source options (same resolution as server.mjs):
@@ -45,6 +51,8 @@ Output options:
   --chapter <id>            Filter list output to one chapter
   --direction <dir>         For deps: up, down, or both (default both)
   --depth <n>               For deps: traversal depth, 1-20 (default 1)
+  --target <dir>            For install-skill: target skills directory
+  --no-open                 Start the preview without opening a browser
   --version                 Print the package version
 
 Patch options:
@@ -74,10 +82,12 @@ function parseArguments(argv) {
     dryRun: false,
     help: false,
     version: false,
+    noOpen: false,
     locale: null,
     chapter: null,
     direction: null,
     depth: null,
+    target: null,
     file: null,
     in: null,
     sourceArgv: [],
@@ -98,6 +108,7 @@ function parseArguments(argv) {
     else if (token === "--strict") options.strict = true;
     else if (token === "--apply") options.apply = true;
     else if (token === "--dry-run") options.dryRun = true;
+    else if (token === "--no-open") options.noOpen = true;
     else if (token === "--version") options.version = true;
     else if (token === "--help" || token === "-h") options.help = true;
     else if (token === "--demo") {
@@ -114,13 +125,16 @@ function parseArguments(argv) {
     } else if (token === "--depth") {
       options.depth = takeValue(token, index);
       index += 1;
+    } else if (token === "--target") {
+      options.target = takeValue(token, index);
+      index += 1;
     } else if (token === "--file") {
       options.file = takeValue(token, index);
       index += 1;
     } else if (token === "--in") {
       options.in = takeValue(token, index);
       index += 1;
-    } else if (token === "--data-dir" || token === "--instance-root") {
+    } else if (token === "--data-dir" || token === "--instance-root" || token === "--config") {
       const value = takeValue(token, index);
       options.sourceArgv.push(token, value);
       index += 1;
@@ -148,6 +162,14 @@ async function openStore(options) {
     throw new CliError("source_error", error.message, {}, 1);
   }
   let questDir = previewConfig.questDir;
+  if (previewConfig.needsSetup || !questDir) {
+    throw new CliError(
+      "setup_required",
+      "No quest data source is configured. Run `ftbquest` for the browser setup page, or pass --data-dir / --instance-root.",
+      { configPath: previewConfig.configPath },
+      1,
+    );
+  }
   if (previewConfig.isDemo) {
     try {
       questDir = await prepareDemoQuestDir({ appDir, fixtureQuestDir });
@@ -396,6 +418,22 @@ async function commandSkill(options, positionals) {
   });
 }
 
+async function commandInstallSkill(options, positionals) {
+  if (positionals.length !== 0) throw new CliError("usage", "install-skill takes no positional arguments", {}, 2);
+  const source = join(appDir, "skills", "ftbquests");
+  if (!existsSync(source)) throw new CliError("skill_not_found", `Bundled skill not found at ${source}`, { path: source }, 1);
+  const agents = join(homedir(), ".agents", "skills");
+  const dsh = join(homedir(), ".dsh", "skills");
+  const targetParent = options.target
+    ?? (existsSync(join(homedir(), ".agents")) ? agents : existsSync(join(homedir(), ".dsh")) ? dsh : agents);
+  const target = join(targetParent, "ftbquests");
+  await mkdir(targetParent, { recursive: true });
+  await cp(source, target, { recursive: true, force: true });
+  emit(options, { ok: true, command: "install-skill", source, target }, value => {
+    process.stdout.write(`Skill installed to ${value.target}\n`);
+  });
+}
+
 async function commandSchema(options, positionals) {  if (positionals.length > 1) throw new CliError("usage", "schema accepts at most one section", {}, 2);
   const snapshot = schemaSnapshot();
   if (!positionals.length) {
@@ -498,10 +536,19 @@ async function main() {
       return;
     }
     if (options.help || positionals.length === 0) {
+      if (positionals.length === 0 && !options.help) {
+        await runPreview({ args: options.sourceArgv, open: !options.noOpen });
+        return;
+      }
       process.stdout.write(HELP);
       return;
     }
     const command = positionals.shift();
+    if (command === "serve") {
+      if (positionals.length) throw new CliError("usage", "serve takes no positional arguments", {}, 2);
+      await runPreview({ args: options.sourceArgv, open: !options.noOpen });
+      return;
+    }
     if (command === "list") await commandList(options);
     else if (command === "show") await commandShow(options, positionals);
     else if (command === "search") await commandSearch(options, positionals);
@@ -509,6 +556,7 @@ async function main() {
     else if (command === "lint") await commandLint(options);
     else if (command === "schema") await commandSchema(options, positionals);
     else if (command === "skill") await commandSkill(options, positionals);
+    else if (command === "install-skill") await commandInstallSkill(options, positionals);
     else if (command === "patch") await commandPatch(options);
     else throw new CliError("usage", `Unknown command: ${command}`, { command }, 2);
   } catch (error) {

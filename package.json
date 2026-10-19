@@ -15,16 +15,18 @@
   },
   "bin": {
     "ftbquest": "cli.mjs",
-    "ftbquest-preview": "server.mjs"
+    "ftbquest-preview": "preview.mjs"
   },
   "files": [
     "app.js",
     "index.html",
+    "setup.html",
+    "setup.js",
     "styles.css",
     "cli.mjs",
     "server.mjs",
+    "preview.mjs",
     "install.mjs",
-    "install.ps1",
     "parse-snbt.mjs",
     "quest-preview.example.json",
     "components/",
@@ -46,11 +48,13 @@
     "cli"
   ],
   "scripts": {
-    "start": "node server.mjs",
+    "start": "node preview.mjs",
+    "serve": "node preview.mjs",
     "setup": "node install.mjs",
     "cli": "node cli.mjs",
     "check": "node scripts/check-syntax.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "prepublishOnly": "npm run check && npm test"
   },
   "engines": {
     "node": ">=20"

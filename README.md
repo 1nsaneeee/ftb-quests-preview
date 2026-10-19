@@ -20,135 +20,116 @@
 
 ## 安装
 
-先下载或解压本项目，然后进入项目目录完成一次配置。配置会写入项目根目录的 `quest-preview.local.json`，该文件已被 Git 忽略。
+需要 Node.js 20+。项目没有第三方运行依赖。
 
-### Windows：双击安装
+### 从 npm 安装（推荐）
 
-1. 安装 Node.js 20+。
-2. 双击项目里的 `install.cmd`。
-3. 按提示选择数据来源：
-   - `1` Minecraft 实例目录（通常包含 `config/`、`mods/`、`resourcepacks/`）；
-   - `2` 单独的 quests 数据目录（必须包含 `chapters/`，`lang/` 可选）；
-   - `3` 内置 demo（用于先试用编辑功能，不会碰真实任务文件）。
-4. 看到 `Local setup saved to ...` 即安装完成。
-
-安装脚本只写本地配置文件，不会创建开机启动项，也不会改动游戏文件。
-
-### 安装为全局命令（npm 包 + PowerShell）
-
-`install.ps1` 是“安装工具本身”的脚本，和上面的 `install.cmd`（配置 quest 数据源）不是一回事。它会：
-
-1. 检查 Node.js 20+；
-2. 用 `npm pack` 打包当前目录，再 `npm install -g` 安装；
-3. 把 npm 全局 bin 目录注册到**用户 PATH**（已存在则跳过）；
-4. 把 `skills/ftbquests/` 复制到 agent skills 目录（默认 `%USERPROFILE%\.agents\skills`，不存在时尝试 `.dsh\skills`）；
-5. 验证 `ftbquest --version`。
-
-在项目目录运行：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\install.ps1
-```
-
-安装完成后，**新开一个终端**，然后：
+> 当前仓库还没有发布到 registry。发布后用下面的命令；未发布时用后面的 tarball 或 `npm link`。
 
 ```sh
-ftbquest --version
-ftbquest skill
+npm install -g ftb-quests-preview
+ftbquest
 ```
 
-常用参数：
+`ftbquest` 默认会启动本地预览并打开浏览器。第一次启动没有数据源时，网页会显示设置页：选择 Minecraft 实例、单独的 quests 数据目录，或内置 demo。配置保存在用户配置目录，不需要再运行安装脚本，也不会写进 npm 包目录。
 
-```powershell
-# 安装到用户可写目录，避免全局 npm 权限问题
-.\install.ps1 -InstallPrefix "$env:LOCALAPPDATA\ftbquests"
+Windows 用户可以在安装后用 `ftbquest install-skill` 把 skill 安装到 agent 目录；也可以手动复制 `skills/ftbquests/` 到 `%USERPROFILE%\.agents\skills\`。CLI 随时可以用 `ftbquest skill` 打印说明。
 
-# 只安装命令，不改 PATH / 不装 skill
-.\install.ps1 -NoPath -NoSkill
-
-# 自定义 skill 目录
-.\install.ps1 -SkillDir "$env:USERPROFILE\.agents\skills"
-```
-
-也可以先生成 tarball，再手动安装：
+也可以先下载 tarball 离线安装：
 
 ```sh
-npm pack
 npm install -g .\ftb-quests-preview-0.1.0.tgz
 ```
 
-`install.ps1` 需要当前目录有 `package.json`；安装后 `ftbquest` / `ftbquest-preview` 都是全局命令。开发时想指向当前源码而不是安装副本，用 `npm link` 即可。
-
-### macOS / Linux（或习惯命令行的 Windows）
+卸载：
 
 ```sh
-npm run setup
+npm uninstall -g ftb-quests-preview
 ```
 
-也可以非交互指定路径：
+如果安装过 skill，同时删除 `%USERPROFILE%\.agents\skills\ftbquests`（或你指定的目录）。
+
+### 发布到 npm（维护者）
 
 ```sh
-npm run setup -- --instance-root "PATH/TO/.minecraft"
-npm run setup -- --data-dir "PATH/TO/ftbquests/quests"
-npm run setup -- --instance-root "PATH/TO/.minecraft" --data-dir "PATH/TO/quests"
-npm run setup -- --demo
+npm login
+npm publish
 ```
 
-说明：
+`prepublishOnly` 会先跑 `npm run check` 和 `npm test`。包名 `ftb-quests-preview` 当前在 registry 上可用；如果要发布到 scope，改 `package.json` 的 `name` 为 `@your-scope/ftb-quests-preview`，再 `npm publish --access public`。
 
-- 实例目录通常包含 `config/`、`mods/`、`resourcepacks/`；脚本会检查 `config/ftbquests/quests` 是否存在。
-- 单独数据目录必须包含 `chapters/`；`lang/` 可选。缺少语言文件时先用章节内联文本，保存时会创建所选语言文件。
-- 已有 `quest-preview.local.json` 时不会隐式覆盖；加 `--replace` 才会先备份旧配置再替换。
-- `npm run setup -- --help` 查看全部参数。
+### 从源码运行
+
+```sh
+npm link        # 让 ftbquest 指向当前源码
+ftbquest        # 启动预览；首次启动在网页里配置
+```
+
+不 link 也可以 `npm start` / `node preview.mjs`。`npm start` 只是启动预览，不发布包。
+
+### 数据源
+
+- 首次运行：`ftbquest` 打开设置页，选择实例、quests 目录或 demo。
+- 重新配置：运行 `ftbquest` 后打开 <http://127.0.0.1:4173/setup.html>。
+- 脚本/AI：可直接传 `--data-dir "PATH/TO/quests"`、`--instance-root "PATH/TO/.minecraft"` 或 `--demo`。
+- 显式配置路径：`--config PATH` 或环境变量 `FTBQUEST_CONFIG`。
+
+配置查找顺序：
+
+1. `--config` / `FTBQUEST_CONFIG`
+2. 当前目录的 `quest-preview.local.json`
+3. 项目目录的 `quest-preview.local.json`（源码开发）
+4. 用户配置目录：
+   - Windows: `%APPDATA%\ftb-quests-preview\quest-preview.local.json`
+   - macOS: `~/Library/Application Support/ftb-quests-preview/quest-preview.local.json`
+   - Linux: `$XDG_CONFIG_HOME/ftb-quests-preview/quest-preview.local.json`（或 `~/.config/...`）
+5. 没有配置时进入网页设置页，不再静默使用 demo。
+
+`--data-dir` 必须直接包含 `chapters/`；`--instance-root` 会查找 `config/ftbquests/quests`。demo 的可写副本在源码目录 `.local/demo-quests`；npm 安装版使用用户缓存目录，不会写安装包。
 
 ### 路径规则
 
-- `npm run setup` / `install.cmd` 传入的路径按**运行安装时的当前目录**解析；交互输入的路径同样如此。
-- `quest-preview.local.json` 里的 `instanceRoot` / `dataDir` 默认保存为**相对路径**，并按该配置文件所在目录解析。这样整个项目和实例的相对结构可以一起移动。
-- Windows 上跨盘符无法写相对路径时，安装会要求确认，或用 `--absolute-paths` 显式允许把绝对路径写进本地配置。
+- CLI / 环境变量路径按调用时的当前目录解析。
+- 配置文件里的 `instanceRoot` / `dataDir` 按**配置文件所在目录**解析。网页设置保存的是绝对路径；手工配置和旧的 `npm run setup` 会保存相对路径。
 - `quest-preview.example.json` 展示配置格式；也可以复制成 `quest-preview.local.json` 手工修改。
+- 源码目录仍保留 `npm run setup`（`install.mjs`）用于脚本化生成项目内配置；日常使用优先用网页设置或 `--data-dir` / `--instance-root`。
 
 ## 启动
 
-Windows 可以双击 `start.cmd`，或在全局安装后运行：
-
 ```sh
-ftbquest-preview
+ftbquest
 ```
 
-源码目录里也可以运行 `npm start`。然后打开 <http://127.0.0.1:4173>。停止服务：在终端按 `Ctrl+C`，或关闭 `start.cmd` 的窗口。
+默认启动本地预览并打开浏览器（`--no-open` 可关闭）。`ftbquest-preview` 是同一个入口的别名；源码目录也可以用 `npm start`。停止服务：在终端按 `Ctrl+C`。
+
+首次启动没有数据源时，浏览器会打开设置页。之后启动会读取配置；需要重新配置时打开 <http://127.0.0.1:4173/setup.html>。
 
 启动时的数据源优先级从高到低：
 
-1. 命令行 `--instance-root PATH` / `--data-dir PATH` / `--demo`
-2. 环境变量 `QUEST_PREVIEW_INSTANCE_ROOT` / `QUEST_PREVIEW_DATA_DIR`
-3. `quest-preview.local.json`
-4. 当前目录没有可用任务数据时，退回内置 demo
+1. 命令行 `--instance-root PATH` / `--data-dir PATH` / `--demo` / `--config PATH`
+2. 环境变量 `QUEST_PREVIEW_INSTANCE_ROOT` / `QUEST_PREVIEW_DATA_DIR` / `FTBQUEST_CONFIG`
+3. 当前目录 `quest-preview.local.json`
+4. 项目目录 `quest-preview.local.json`（源码开发）
+5. 用户配置目录
+6. 都没有时进入网页设置页
 
-显式配置的路径失效时会直接报错，不会静默切回 demo。demo 数据首次运行会复制到被忽略的 `.local/demo-quests`，可放心试编辑；仓库内 `fixtures/quests` 保持为原始示例。
+显式配置的路径失效时会直接报错，不会静默切回 demo。demo 数据首次运行会复制到可写位置；源码目录是 `.local/demo-quests`，npm 安装版是用户缓存目录。仓库内 `fixtures/quests` 保持为原始示例。
 
 端口被占用时，可以换一个端口：
 
 ```sh
 # macOS / Linux
-QUEST_PREVIEW_PORT=4180 npm start
+QUEST_PREVIEW_PORT=4180 ftbquest
 
 # Windows PowerShell
-$env:QUEST_PREVIEW_PORT = "4180"; npm start
+$env:QUEST_PREVIEW_PORT = "4180"; ftbquest
 ```
 
 ## 命令行 / AI 编辑接口
 
 除了浏览器，项目还提供一个 headless CLI，适合脚本和 AI Agent。它复用同一套 SNBT parser、配置解析、备份和冲突检测逻辑；默认只做 dry-run，不写文件。
 
-`package.json` 已经把 CLI 注册为 `bin`。在项目目录执行一次：
-
-```sh
-npm link
-ftbquest --version
-```
-
-之后在任意目录都可以直接使用 `ftbquest`（浏览器入口是 `ftbquest-preview`）。`npm link` 只是本地全局链接，不会发布包；卸载用 `npm unlink -g ftb-quests-preview`。
+`ftbquest` 不带命令时启动预览并打开浏览器；带 `list` / `show` / `patch` 等命令时走 CLI。`ftbquest-preview` 是预览入口的别名。源码开发用 `npm link` 指向当前目录；安装包用户直接 `npm install -g ftb-quests-preview`。
 
 ```sh
 ftbquest list --json --brief
@@ -163,9 +144,9 @@ ftbquest patch --file patch.json --json          # dry-run
 ftbquest patch --file patch.json --apply --json  # 真正写入
 ```
 
-没有 `npm link` 时仍可用 `node cli.mjs ...` 或 `npm run cli -- ...`；AI 场景建议直接用 `ftbquest`，避免 npm 的启动日志混进 JSON 输出。
+没有全局命令时仍可用 `node cli.mjs ...`；AI 场景建议直接用 `ftbquest`，避免 npm 的启动日志混进 JSON 输出。
 
-数据源参数和 `npm start` 相同：`--data-dir`、`--instance-root`、`--demo`，否则读取 `quest-preview.local.json`。`--locale` 默认 `en_us`；中文包建议显式传 `--locale zh_cn`。patch 文件里的 `locale` 优先级更高，会同时决定读取和写入语言。
+数据源参数：`--data-dir`、`--instance-root`、`--demo`、`--config`；不传时按上面的配置顺序查找。`--locale` 默认 `en_us`；中文包建议显式传 `--locale zh_cn`。patch 文件里的 `locale` 优先级更高，会同时决定读取和写入语言。
 
 ### 命令
 
@@ -213,19 +194,19 @@ ftbquest patch --file patch.json --apply --json  # 真正写入
 
 仓库内有一个给 agent 用的 skill：[skills/ftbquests/SKILL.md](skills/ftbquests/SKILL.md)。它描述什么时候用 `ftbquest`、只读/编辑工作流、patch 格式、安全检查、常见任务和限制。
 
-`install.ps1` 默认会自动把它复制到 agent skills 目录。手动安装时，把整个 `skills/ftbquests/` 目录复制过去即可，例如：
+安装 skill 不需要本地构建，直接用 CLI：
 
 ```sh
-# Unix-like / 本项目 harness
-cp -r skills/ftbquests ~/.agents/skills/
+ftbquest install-skill
 ```
 
-```powershell
-# Windows PowerShell
-Copy-Item -Recurse skills\ftbquests "$env:USERPROFILE\.agents\skills\"
+默认复制到 `%USERPROFILE%\.agents\skills\ftbquests`（没有 `.agents` 时尝试 `.dsh`）。也可以指定目录：
+
+```sh
+ftbquest install-skill --target "C:\Users\me\.agents\skills"
 ```
 
-之后 agent 在遇到 FTB Quests 编辑任务时会优先使用 `ftbquest`，而不是手改 SNBT。没有 skill 系统时，直接让 agent 运行 `ftbquest skill` 或阅读 `skills/ftbquests/SKILL.md` 也可以。
+没有 skill 系统时，直接让 agent 运行 `ftbquest skill` 或阅读 `skills/ftbquests/SKILL.md` 也可以。
 
 ## 使用
 
@@ -292,7 +273,7 @@ Copy-Item -Recurse skills\ftbquests "$env:USERPROFILE\.agents\skills\"
 
 **Node.js 版本太旧**
 
-安装脚本会检查主版本号。升级到 Node.js 20+ 后重新运行 `install.cmd` 或 `npm run setup`。
+升级到 Node.js 20+ 后重新执行 `npm install -g ftb-quests-preview`（或重新 `npm link`）。
 
 **提示找不到 `chapters/`**
 
@@ -304,7 +285,7 @@ Copy-Item -Recurse skills\ftbquests "$env:USERPROFILE\.agents\skills\"
 
 **想重新选择实例**
 
-运行 `npm run setup -- --replace`，或删除 `quest-preview.local.json` 后重新运行 `install.cmd` / `npm run setup`。旧配置会先备份为 `.bak-<时间戳>`。
+运行 `ftbquest` 后打开 <http://127.0.0.1:4173/setup.html>，或删除用户配置目录里的 `quest-preview.local.json`。源码目录也可以用 `npm run setup -- --replace`（旧配置会先备份）。
 
 **保存后游戏里没变化**
 
@@ -333,14 +314,28 @@ npm test
 
 ## English quick start
 
-Requires Node.js 20+; Node.js 24 LTS is recommended. Get it from the [official download page](https://nodejs.org/en/download). No `npm install` is needed.
+Requires Node.js 20+; Node.js 24 LTS is recommended. Get it from the [official download page](https://nodejs.org/en/download).
 
-1. Unzip or clone this project.
-2. Run `install.cmd` on Windows (double-click) or `npm run setup` in a terminal. Choose a Minecraft instance, a quests folder containing `chapters/`, or the bundled demo.
-3. Start with `start.cmd` on Windows or `npm start` anywhere, then open <http://127.0.0.1:4173>.
-4. Edit coordinates (drag nodes in "章节任务图" → "编辑布局", or type X/Y) and quest title/subtitle/description, then click "保存更改".
+```sh
+npm install -g ftb-quests-preview
+ftbquest
+```
 
-Setup writes ignored local configuration with relative paths when possible. Saves are limited to `x`, `y`, `title`, `subtitle`, and `description`; every save creates a recoverable backup under `.quest-preview-backups/`. See the Chinese sections above for path rules, conflict handling, recovery, and fidelity limits.
+`ftbquest` starts the local preview and opens the browser. On the first run, choose a Minecraft instance, a quests folder containing `chapters/`, or the bundled demo in the web setup page. The configuration lives in the user config directory, not in the npm package.
+
+For AI/scripts, the same binary has a headless CLI:
+
+```sh
+ftbquest list --data-dir "PATH/TO/quests" --json --brief
+ftbquest show <questId> --json --raw
+ftbquest lint --json --strict
+ftbquest schema patch --json
+ftbquest patch --file patch.json --json          # dry-run
+ftbquest patch --file patch.json --apply --json  # write
+ftbquest install-skill                           # install the agent skill
+```
+
+Patch accepts `questId` plus `x`, `y`, `title`, `subtitle`, and `description`; dry-run returns changed files and line hunks, and `--apply` creates backups. See the Chinese sections above for path rules, conflict handling, recovery, and fidelity limits.
 
 For scripts and AI agents there is also a headless CLI:
 

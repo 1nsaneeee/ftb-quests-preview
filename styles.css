@@ -44,7 +44,9 @@ button { cursor: pointer; }
 .topbar-source { margin-left: 15px; display: flex; align-items: center; gap: 9px; min-width: 0; color: #89938d; font: 10px/1.3 var(--mono); }
 .topbar-source span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .live-dot, .mode-indicator { width: 6px; height: 6px; flex: none; border-radius: 50%; background: #7cab67; box-shadow: 0 0 0 3px #7cab6718; }
-.topbar-state { margin-left: auto; color: #88928b; font: 10px var(--mono); }
+.topbar-state { margin-left: 12px; color: #88928b; font: 10px var(--mono); }
+.topbar-setup { margin-left: auto; color: #a2aaa5; font-size: 10px; text-decoration: none; border-bottom: 1px dotted #5f6862; }
+.topbar-setup:hover { color: #e1bd68; border-color: #937539; }
 .topbar-state.error { color: #e68b6b; }
 
 .workspace { min-height: 0; flex: 1; display: grid; grid-template-columns: 276px minmax(420px, 1fr) 306px; }

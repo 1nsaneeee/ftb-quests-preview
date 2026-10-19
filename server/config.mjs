@@ -1,15 +1,47 @@
 import { lstat, readFile, stat } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 export const LOCAL_CONFIG_NAME = "quest-preview.local.json";
+export const USER_CONFIG_DIR = "ftb-quests-preview";
+
+export function userConfigPath(env = process.env) {
+  const home = homedir();
+  const base = process.platform === "win32"
+    ? env.APPDATA || join(home, "AppData", "Roaming")
+    : process.platform === "darwin"
+      ? join(home, "Library", "Application Support")
+      : env.XDG_CONFIG_HOME || join(home, ".config");
+  return join(base, USER_CONFIG_DIR, LOCAL_CONFIG_NAME);
+}
+
+export function userCacheDir(env = process.env) {
+  const home = homedir();
+  const base = process.platform === "win32"
+    ? env.LOCALAPPDATA || join(home, "AppData", "Local")
+    : process.platform === "darwin"
+      ? join(home, "Library", "Caches")
+      : env.XDG_CACHE_HOME || join(home, ".cache");
+  return join(base, USER_CONFIG_DIR);
+}
 
 function parseArguments(argv) {
-  const parsed = { demo: false, instanceRoot: undefined, dataDir: undefined };
+  const parsed = { demo: false, instanceRoot: undefined, dataDir: undefined, config: undefined };
   for (let index = 0; index < argv.length; index += 1) {
     const name = argv[index];
     if (name === "--help" || name === "-h") continue;
     if (name === "--demo") {
       parsed.demo = true;
+      continue;
+    }
+    if (name === "--config") {
+      const value = argv[index + 1];
+      if (typeof value !== "string" || value.length === 0 || value.startsWith("--")) {
+        throw new Error("--config requires a path");
+      }
+      if (parsed.config !== undefined) throw new Error("--config may only be specified once");
+      parsed.config = value;
+      index += 1;
       continue;
     }
     if (name !== "--instance-root" && name !== "--data-dir") {
@@ -38,8 +70,17 @@ function configuredPath(value, baseDirectory, label) {
   return resolve(baseDirectory, value);
 }
 
-async function readLocalConfig(projectDir) {
-  const file = resolve(projectDir, LOCAL_CONFIG_NAME);
+async function fileExists(path) {
+  try {
+    await lstat(path);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT" || error.code === "ENOTDIR") return false;
+    throw error;
+  }
+}
+
+async function readLocalConfigAt(file) {
   let source;
   try {
     const fileInfo = await lstat(file);
@@ -48,7 +89,7 @@ async function readLocalConfig(projectDir) {
     }
     source = await readFile(file, "utf8");
   } catch (error) {
-    if (error.code === "ENOENT") return {};
+    if (error.code === "ENOENT") return { config: {}, exists: false };
     throw error;
   }
   let config;
@@ -69,7 +110,7 @@ async function readLocalConfig(projectDir) {
       throw new Error(`${LOCAL_CONFIG_NAME} contains unsupported field '${key}'`);
     }
   }
-  return config;
+  return { config, exists: true };
 }
 
 async function assertDirectory(path, label) {
@@ -111,7 +152,9 @@ function isWithin(parent, child) {
 
 /**
  * Resolve all runtime paths without changing process state. CLI and environment
- * paths use cwd as their base; paths in quest-preview.local.json use projectDir.
+ * paths use cwd as their base; paths in the selected config file use that file's
+ * directory. The config file is searched in cwd, then the project directory,
+ * then the user config directory.
  */
 export async function loadPreviewConfig({
   argv = [],
@@ -119,59 +162,91 @@ export async function loadPreviewConfig({
   cwd = process.cwd(),
   projectDir,
   fixtureQuestDir,
+  configPath,
 } = {}) {
   if (!projectDir || !fixtureQuestDir) throw new Error("projectDir and fixtureQuestDir are required");
   const workingDirectory = resolve(cwd);
   const projectDirectory = resolve(projectDir);
   const fixtureDirectory = resolve(fixtureQuestDir);
   const cli = parseArguments(argv);
-  const local = await readLocalConfig(projectDirectory);
+  const explicitSource = cli.demo
+    || cli.instanceRoot !== undefined
+    || cli.dataDir !== undefined
+    || env.QUEST_PREVIEW_INSTANCE_ROOT !== undefined
+    || env.QUEST_PREVIEW_DATA_DIR !== undefined;
+
+  const explicitConfig = configPath ?? cli.config ?? env.FTBQUEST_CONFIG;
+  let selectedConfigPath;
+  let local = {};
+  let configExists = false;
+  if (explicitSource) {
+    selectedConfigPath = explicitConfig ? resolve(workingDirectory, explicitConfig) : userConfigPath(env);
+  } else {
+    const cwdConfig = join(workingDirectory, LOCAL_CONFIG_NAME);
+    const projectConfig = join(projectDirectory, LOCAL_CONFIG_NAME);
+    if (explicitConfig) selectedConfigPath = resolve(workingDirectory, explicitConfig);
+    else if (await fileExists(cwdConfig)) selectedConfigPath = cwdConfig;
+    else if (await fileExists(projectConfig)) selectedConfigPath = projectConfig;
+    else selectedConfigPath = userConfigPath(env);
+    ({ config: local, exists: configExists } = await readLocalConfigAt(selectedConfigPath));
+  }
+  const configDirectory = dirname(selectedConfigPath);
 
   const cliInstance = configuredPath(cli.instanceRoot, workingDirectory, "--instance-root");
   const cliData = configuredPath(cli.dataDir, workingDirectory, "--data-dir");
   const envInstance = configuredPath(env.QUEST_PREVIEW_INSTANCE_ROOT, workingDirectory, "QUEST_PREVIEW_INSTANCE_ROOT");
   const envData = configuredPath(env.QUEST_PREVIEW_DATA_DIR, workingDirectory, "QUEST_PREVIEW_DATA_DIR");
-  const localInstance = configuredPath(local.instanceRoot, projectDirectory, "instanceRoot");
-  const localData = configuredPath(local.dataDir, projectDirectory, "dataDir");
+  const localInstance = configuredPath(local.instanceRoot, configDirectory, "instanceRoot");
+  const localData = configuredPath(local.dataDir, configDirectory, "dataDir");
 
   const selectedInstance = cliInstance ?? envInstance ?? localInstance;
   const selectedData = cliData ?? envData ?? localData;
   const hasExplicitPath = selectedInstance !== undefined || selectedData !== undefined;
   const cliDemo = cli.demo;
   const configDemo = local.mode === "demo" && !hasExplicitPath;
+  const base = { configPath: selectedConfigPath, configExists };
 
   if (cliDemo || configDemo) {
     await assertQuestDirectory(fixtureDirectory);
     return {
+      ...base,
       instanceRoot: workingDirectory,
       questDir: fixtureDirectory,
       isDemo: true,
-      source: cliDemo ? "cli" : configDemo ? "local-config" : "demo",
+      needsSetup: false,
+      source: cliDemo ? "cli" : "local-config",
     };
   }
 
   const instanceRoot = selectedInstance ?? workingDirectory;
   await assertDirectory(instanceRoot, "Minecraft instance directory");
   const defaultQuestDir = resolve(instanceRoot, "config", "ftbquests", "quests");
-  if (!hasExplicitPath && local.mode !== "instance") {
+  if (!hasExplicitPath) {
+    let defaultExists = false;
     try {
-      await stat(defaultQuestDir);
+      defaultExists = (await stat(defaultQuestDir)).isDirectory();
     } catch (error) {
-      if (error.code === "ENOENT" || error.code === "ENOTDIR") {
-        await assertQuestDirectory(fixtureDirectory);
-        return { instanceRoot, questDir: fixtureDirectory, isDemo: true, source: "demo" };
-      }
-      throw error;
+      if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
+    }
+    if (!defaultExists) {
+      return {
+        ...base,
+        instanceRoot,
+        questDir: null,
+        isDemo: false,
+        needsSetup: true,
+        source: "unconfigured",
+      };
     }
   }
 
   const questDir = selectedData ?? defaultQuestDir;
   await assertQuestDirectory(questDir);
 
-  let source = "local-config";
+  let source = configExists ? "local-config" : "default";
   if (cliInstance !== undefined || cliData !== undefined) source = "cli";
   else if (envInstance !== undefined || envData !== undefined) source = "env";
-  return { instanceRoot, questDir, isDemo: false, source };
+  return { ...base, instanceRoot, questDir, isDemo: false, needsSetup: false, source };
 }
 
 export function toLocalConfigPath(targetPath, projectDir, { allowAbsolute = false } = {}) {

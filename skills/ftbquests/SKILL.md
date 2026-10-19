@@ -17,7 +17,10 @@ description: 读取、校验、编辑和预览 Minecraft FTB Quests 任务数据
 ftbquest --version
 ```
 
-如果提示 command not found，在项目目录运行 `npm link`，然后重试。不要改回 `node cli.mjs`；CLI 已经作为 bin 安装。
+如果提示 command not found：
+- npm 安装版：`npm install -g ftb-quests-preview`
+- 源码目录：`npm link`
+- 不要改回 `node cli.mjs`
 
 如果当前 agent 还没有加载这份 skill，先运行：
 
@@ -25,7 +28,11 @@ ftbquest --version
 ftbquest skill
 ```
 
-它会打印完整使用说明；`ftbquest skill --json` 返回路径和内容。
+它会打印完整使用说明；`ftbquest skill --json` 返回路径和内容。安装到 agent 目录用：
+
+```sh
+ftbquest install-skill
+```
 
 ## 数据源
 
@@ -39,8 +46,16 @@ ftbquest list --demo
 
 - `--data-dir` 指向包含 `chapters/` 的 quests 数据根目录，不是 `.minecraft`。
 - `--instance-root` 指向 `.minecraft`（或实例根），CLI 会自动找 `config/ftbquests/quests`。
-- 不传时读取当前目录的 `quest-preview.local.json`，再退回内置 demo。
+- 不传时读取当前目录 / 项目 / 用户配置目录里的 `quest-preview.local.json`；都没有时运行 `ftbquest` 会打开网页设置页。
 - 相对路径按调用时的当前目录解析。
+
+## 启动预览（人工）
+
+```sh
+ftbquest
+```
+
+不带命令时启动本地预览并打开浏览器；首次启动在网页里选择实例 / quests 目录 / demo。AI 编辑不需要打开浏览器，直接用下面的命令。
 
 ## 只读工作流
 
@@ -113,6 +128,7 @@ ftbquest lint --data-dir "$QUESTS" --json --strict
 | `ftbquest lint [--json] [--strict]` | 重复 ID、缺失/循环依赖、坐标、形状、类型、标题等 |
 | `ftbquest schema [section]` | quest/chapter/task/reward/patch 字段与枚举 |
 | `ftbquest skill` | 打印这份使用说明（`--json` 返回内容与路径） |
+| `ftbquest install-skill` | 把 skill 复制到 `~/.agents/skills`（`--target` 可指定） |
 | `ftbquest patch --file <path> [--apply]` | 默认 dry-run；`--apply` 才写 |
 | `ftbquest --version` | 版本 |
 

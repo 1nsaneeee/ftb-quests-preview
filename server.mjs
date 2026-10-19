@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { createServer } from "node:http";
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { readFile, readdir, realpath, stat } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { copyFile, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { watch } from "node:fs";
 import { inflateRawSync } from "node:zlib";
 import { basename, dirname, extname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
@@ -12,22 +13,24 @@ import { revisionHash, saveQuestChanges } from "./server/save-service.mjs";
 import { prepareDemoQuestDir } from "./server/source.mjs";
 
 const appDir = resolve(fileURLToPath(new URL(".", import.meta.url)));
-const args = process.argv.slice(2);
+const rawArgs = process.argv.slice(2);
+const openOnStart = rawArgs.includes("--open") && !rawArgs.includes("--no-open");
+const args = rawArgs.filter(arg => arg !== "--open" && arg !== "--no-open");
 if (args.includes("--help") || args.includes("-h")) {
-  console.log("Usage: ftbquest-preview [--demo | --instance-root PATH | --data-dir PATH]");
-  console.log("       node server.mjs [--demo | --instance-root PATH | --data-dir PATH]");
+  console.log("Usage: ftbquest [--demo | --instance-root PATH | --data-dir PATH | --config PATH] [--open]");
+  console.log("       ftbquest-preview [--demo | --instance-root PATH | --data-dir PATH | --config PATH] [--no-open]");
   console.log("       QUEST_PREVIEW_INSTANCE_ROOT, QUEST_PREVIEW_DATA_DIR, and quest-preview.local.json are also supported.");
   process.exit(0);
 }
 const fixtureQuestDir = join(appDir, "fixtures", "quests");
 const previewConfig = await loadPreviewConfig({ argv: args, env: process.env, cwd: process.cwd(), projectDir: appDir, fixtureQuestDir });
-const root = previewConfig.instanceRoot;
+const root = previewConfig.instanceRoot ?? appDir;
 let QUEST_DIR = previewConfig.questDir;
 if (previewConfig.isDemo) {
   QUEST_DIR = await prepareDemoQuestDir({ appDir, fixtureQuestDir });
 }
-const CHAPTER_DIR = join(QUEST_DIR, "chapters");
-const LOCALE_DIR = join(QUEST_DIR, "lang");
+const CHAPTER_DIR = QUEST_DIR ? join(QUEST_DIR, "chapters") : null;
+const LOCALE_DIR = QUEST_DIR ? join(QUEST_DIR, "lang") : null;
 const MOD_DIR = join(root, "mods");
 const RESOURCEPACK_DIR = join(root, "resourcepacks");
 const ASSET_DIRS = [join(root, "assets"), resolve(root, "../assets"), resolve(root, "../../../assets")];
@@ -50,6 +53,97 @@ const MIME = {
   ".png": "image/png",
   ".svg": "image/svg+xml",
 };
+
+function openLocalBrowser(url) {
+  const [command, commandArgs] = process.platform === "win32"
+    ? ["cmd", ["/c", "start", "", url]]
+    : process.platform === "darwin"
+      ? ["open", [url]]
+      : ["xdg-open", [url]];
+  try {
+    const child = spawn(command, commandArgs, { detached: true, stdio: "ignore", windowsHide: true });
+    child.on("error", () => {});
+    child.unref();
+  } catch {
+    // Opening a browser is best-effort; the URL is still printed.
+  }
+}
+
+async function assertSetupDirectory(path, label) {
+  let details;
+  try {
+    details = await stat(path);
+  } catch (error) {
+    if (error.code === "ENOENT" || error.code === "ENOTDIR") throw new Error(`${label}不存在：${path}`);
+    throw error;
+  }
+  if (!details.isDirectory()) throw new Error(`${label}不是目录：${path}`);
+}
+
+async function assertSetupQuestDirectory(path) {
+  await assertSetupDirectory(path, "quests 数据目录");
+  await assertSetupDirectory(join(path, "chapters"), "chapters 目录");
+  try {
+    const lang = await stat(join(path, "lang"));
+    if (!lang.isDirectory()) throw new Error(`lang 不是目录：${join(path, "lang")}`);
+  } catch (error) {
+    if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
+  }
+}
+
+function setupPath(value, label) {
+  if (typeof value !== "string" || value.trim().length === 0) throw new Error(`${label}不能为空`);
+  return resolve(process.cwd(), value.trim());
+}
+
+async function buildSetupConfig(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("请求体必须是对象");
+  const allowed = new Set(["mode", "instanceRoot", "dataDir"]);
+  for (const key of Object.keys(body)) if (!allowed.has(key)) throw new Error(`未知字段：${key}`);
+  if (body.mode === "demo") return { version: 1, mode: "demo" };
+  if (body.mode === "instance") {
+    const instanceRoot = setupPath(body.instanceRoot, "实例目录");
+    await assertSetupDirectory(instanceRoot, "Minecraft 实例目录");
+    const questDir = join(instanceRoot, "config", "ftbquests", "quests");
+    await assertSetupQuestDirectory(questDir);
+    return { version: 1, mode: "instance", instanceRoot };
+  }
+  if (body.mode === "data") {
+    const dataDir = setupPath(body.dataDir, "quests 数据目录");
+    await assertSetupQuestDirectory(dataDir);
+    const config = { version: 1, mode: "instance", dataDir };
+    if (body.instanceRoot !== undefined) {
+      if (typeof body.instanceRoot !== "string" || body.instanceRoot.trim().length === 0) {
+        throw new Error("实例目录必须是字符串");
+      }
+      const instanceRoot = setupPath(body.instanceRoot, "实例目录");
+      await assertSetupDirectory(instanceRoot, "Minecraft 实例目录");
+      config.instanceRoot = instanceRoot;
+    }
+    return config;
+  }
+  throw new Error("mode 必须是 instance、data 或 demo");
+}
+
+async function writeSetupConfig(config) {
+  const configPath = previewConfig.configPath;
+  if (!configPath) throw new Error("没有可写的配置文件路径");
+  await mkdir(dirname(configPath), { recursive: true });
+  try {
+    await copyFile(configPath, `${configPath}.bak-${new Date().toISOString().replaceAll(":", "-")}`);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  const temporary = `${configPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    await writeFile(temporary, `${JSON.stringify(config, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+    await rename(temporary, configPath);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+  return configPath;
+}
 
 function zipEntries(buffer) {
   let eocd = -1;
@@ -225,6 +319,7 @@ async function localArchiveFiles() {
 }
 
 async function questData(locale) {
+  if (!QUEST_DIR) throw Object.assign(new Error("Quest data source is not configured"), { statusCode: 503 });
   let defaults = {};
   try {
     defaults = parseSnbt(await readFile(join(QUEST_DIR, "data.snbt"), "utf8"), "data.snbt");
@@ -486,15 +581,69 @@ const server = createServer(async (request, response) => {
     return;
   }
   try {
+    if (url.pathname === "/api/setup") {
+      if (request.method === "GET") {
+        json(response, {
+          ok: true,
+          needsSetup: Boolean(previewConfig.needsSetup),
+          configPath: previewConfig.configPath,
+          configExists: Boolean(previewConfig.configExists),
+          current: {
+            source: previewConfig.source,
+            isDemo: Boolean(previewConfig.isDemo),
+          },
+        });
+        return;
+      }
+      if (request.method !== "POST") {
+        jsonStatus(response, 405, { error: "method_not_allowed" });
+        return;
+      }
+      if (!validWriteOrigin(request)) {
+        jsonStatus(response, 403, { error: "origin_rejected" });
+        return;
+      }
+      let config;
+      try {
+        const body = await requestJson(request);
+        config = await buildSetupConfig(body);
+      } catch (error) {
+        if (error.statusCode) {
+          jsonStatus(response, error.statusCode, { error: error.statusCode === 413 ? "request_too_large" : "invalid_request" });
+        } else {
+          jsonStatus(response, 400, { error: "setup_invalid", message: error.message });
+        }
+        return;
+      }
+      let configPath;
+      try {
+        configPath = await writeSetupConfig(config);
+      } catch (error) {
+        console.error("Quest setup write failed", error);
+        jsonStatus(response, 500, { error: "setup_write_failed", message: error.message });
+        return;
+      }
+      jsonStatus(response, 200, { ok: true, restart: true, configPath });
+      setTimeout(() => process.exit(75), 150);
+      return;
+    }
     if (url.pathname === "/api/data") {
       if (request.method !== "GET") {
         jsonStatus(response, 405, { error: "method_not_allowed" });
+        return;
+      }
+      if (previewConfig.needsSetup || !QUEST_DIR) {
+        jsonStatus(response, 503, { error: "setup_required" });
         return;
       }
       json(response, await questData(url.searchParams.get("locale") ?? "en_us"));
       return;
     }
     if (url.pathname === "/api/save") {
+      if (previewConfig.needsSetup || !QUEST_DIR) {
+        jsonStatus(response, 503, { error: "setup_required" });
+        return;
+      }
       if (request.method !== "POST") {
         jsonStatus(response, 405, { error: "method_not_allowed" });
         return;
@@ -571,8 +720,8 @@ const server = createServer(async (request, response) => {
       response.writeHead(400).end("Invalid path");
       return;
     }
-    if (route === "/") route = "/index.html";
-    const allowed = ["/index.html", "/app.js", "/styles.css"].includes(route)
+    if (route === "/") route = previewConfig.needsSetup ? "/setup.html" : "/index.html";
+    const allowed = ["/index.html", "/setup.html", "/setup.js", "/app.js", "/styles.css"].includes(route)
       || /^\/(?:components|lib)\/[a-zA-Z0-9_-]+\.js$/.test(route)
       || /^\/styles\/[a-zA-Z0-9_-]+\.css$/.test(route);
     if (!allowed) {
@@ -609,10 +758,24 @@ const server = createServer(async (request, response) => {
   }
 });
 
+const previewUrl = `http://${HOST}:${PORT}`;
+server.on("error", error => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use; opening the existing preview at ${previewUrl}`);
+    if (openOnStart) openLocalBrowser(previewUrl);
+    process.exit(openOnStart ? 0 : 1);
+  }
+  throw error;
+});
 server.listen(PORT, HOST, () => {
-  console.log(`Quest preview ready at http://${HOST}:${PORT}`);
-  console.log(`Quest data loaded (${previewConfig.isDemo ? "editable local demo copy" : "selected data directory"}).`);
+  console.log(`Quest preview ready at ${previewUrl}`);
+  if (previewConfig.needsSetup) {
+    console.log("No quest data source configured yet; open the browser setup page.");
+  } else {
+    console.log(`Quest data loaded (${previewConfig.isDemo ? "editable local demo copy" : "selected data directory"}).`);
+  }
   console.log("Instance assets are optional; missing fonts and textures use browser fallbacks.");
+  if (openOnStart) openLocalBrowser(previewUrl);
 });
 
 const notifyReload = () => {
@@ -621,10 +784,12 @@ const notifyReload = () => {
   archiveCache.clear();
   console.log("Quest data changed; browser preview refreshed");
 };
-for (const folder of [QUEST_DIR, CHAPTER_DIR, LOCALE_DIR]) {
-  try {
-    watch(folder, { persistent: true }, notifyReload);
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
+if (QUEST_DIR) {
+  for (const folder of [QUEST_DIR, CHAPTER_DIR, LOCALE_DIR]) {
+    try {
+      watch(folder, { persistent: true }, notifyReload);
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
   }
 }
