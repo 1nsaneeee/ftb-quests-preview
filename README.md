@@ -24,7 +24,7 @@
 
 ### 从 npm 安装（推荐）
 
-> 当前仓库还没有发布到 registry。发布后用下面的命令；未发布时用后面的 tarball 或 `npm link`。
+> 0.1.0 首次发布可能仍在 npm 审核中；如果暂时安装不到，使用下方的 tarball 或 `npm link`。
 
 ```sh
 npm install -g ftb-quests-preview
@@ -49,15 +49,6 @@ npm uninstall -g ftb-quests-preview
 
 如果安装过 skill，同时删除 `%USERPROFILE%\.agents\skills\ftbquests`（或你指定的目录）。
 
-### 发布到 npm（维护者）
-
-```sh
-npm login
-npm publish
-```
-
-`prepublishOnly` 会先跑 `npm run check` 和 `npm test`。包名 `ftb-quests-preview` 当前在 registry 上可用；如果要发布到 scope，改 `package.json` 的 `name` 为 `@your-scope/ftb-quests-preview`，再 `npm publish --access public`。
-
 ### 从源码运行
 
 ```sh
@@ -65,7 +56,7 @@ npm link        # 让 ftbquest 指向当前源码
 ftbquest        # 启动预览；首次启动在网页里配置
 ```
 
-不 link 也可以 `npm start` / `node preview.mjs`。`npm start` 只是启动预览，不发布包。
+不 link 也可以 `npm start` / `node preview.mjs`；它只启动本地预览。
 
 ### 数据源
 
