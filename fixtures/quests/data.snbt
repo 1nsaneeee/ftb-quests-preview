@@ -1,0 +1,4 @@
+{
+	default_quest_shape: "circle"
+	grid_scale: 0.5d
+}

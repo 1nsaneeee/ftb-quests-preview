@@ -1,0 +1,7 @@
+{
+	"chapter.demo_a.title": "演示：开始"
+	"chapter_group.demo_group.title": "演示分组"
+	"quest.demo_first.title": "第一步"
+	"quest.demo_first.quest_subtitle": "来自语言文件的副标题"
+	"quest.demo_second.title": "继续"
+}

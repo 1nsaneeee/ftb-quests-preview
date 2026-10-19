@@ -1,0 +1,19 @@
+.canvas-toolbar { height: 47px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #2f3633; background: #202424; }
+.crumbs { min-width: 0; display: flex; align-items: center; gap: 8px; color: #87918a; font-size: 10px; }
+.crumbs span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crumb-slash { color: #515954; }
+.crumbs strong { overflow: hidden; color: #d6dcd6; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+.view-switch { display: flex; align-items: center; gap: 4px; }
+.view-button { min-height: 30px; padding: 0 12px; color: #aeb6af; background: transparent; border: 1px solid transparent; font-size: 11px; }
+.view-button:hover { color: #eee4cc; background: #292d2b; }
+.view-button.active { color: #f0d28b; background: #332d20; border-color: #69542d; }
+.canvas-scroll { min-height: 0; flex: 1; overflow: auto; }
+.canvas-stage { min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 30px; background-color: #202424; background-image: radial-gradient(#3b413e 0.6px, transparent 0.6px); background-size: 16px 16px; }
+#questCanvas { display: block; flex: none; image-rendering: pixelated; }
+.canvas-footer { min-height: 34px; flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 18px; color: #a4aea7; background: #1d2121; border-top: 1px solid #303634; font: 9px var(--mono); }
+
+@media (max-width: 700px) {
+  .canvas-toolbar { height: 38px; padding: 0 12px; }
+  .view-button { min-height: 28px; padding: 0 7px; }
+  .canvas-stage { justify-content: flex-start; min-width: max-content; padding: 22px; }
+}

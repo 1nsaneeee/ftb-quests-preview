@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>FTB Quest Preview</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles/navigation.css" />
+    <link rel="stylesheet" href="/styles/quest-details.css" />
+    <link rel="stylesheet" href="/styles/preview-controls.css" />
+    <link rel="stylesheet" href="/styles/quest-map.css" />
+    <link rel="stylesheet" href="/styles/quest-editor.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div class="brand-copy">
+          <strong>Quest Preview</strong>
+          <span>离线任务详情预览</span>
+        </div>
+        <div class="topbar-source"><span class="live-dot"></span><span id="sourcePath">读取本地任务文件…</span></div>
+        <div class="topbar-state" id="connectionState">连接中</div>
+      </header>
+
+      <main class="workspace">
+        <aside class="navigator">
+          <div class="rail-heading">
+            <div>
+              <div class="section-kicker">QUEST FILE</div>
+              <h1>任务</h1>
+            </div>
+            <span class="count-label" id="questCount">—</span>
+          </div>
+          <label class="search-field">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"></circle><path d="m13 13 4 4"></path></svg>
+            <input id="search" type="search" placeholder="搜索章节或任务" autocomplete="off" />
+            <kbd>/</kbd>
+          </label>
+          <div class="chapter-list" id="chapterList" aria-label="任务章节"></div>
+          <div class="nav-footnote"><span class="key-dot"></span> 本地可编辑 · 保存前自动备份</div>
+        </aside>
+
+        <section class="preview-workspace" aria-label="任务详情预览">
+          <div class="canvas-toolbar">
+            <div class="crumbs"><span id="crumbChapter">—</span><span class="crumb-slash">/</span><strong id="crumbQuest">—</strong></div>
+            <div class="view-switch" role="group" aria-label="预览视图">
+              <button class="view-button active" id="detailsViewButton" type="button" aria-pressed="true">任务详情</button>
+              <button class="view-button" id="mapViewButton" type="button" aria-pressed="false">章节任务图</button>
+            </div>
+          </div>
+          <div class="canvas-scroll" id="canvasScroll">
+            <div class="canvas-stage" id="canvasStage">
+              <canvas id="questCanvas" aria-label="Minecraft FTB Quests 任务详情面板"></canvas>
+            </div>
+          </div>
+          <section class="graph-view hidden" id="graphView" aria-label="章节任务图">
+            <div class="graph-toolbar">
+              <label for="graphChapter">章节</label>
+              <select id="graphChapter" aria-label="任务图章节"></select>
+              <button class="graph-action" id="toggleGraphEditing" type="button" aria-pressed="false">编辑布局</button>
+              <button class="graph-action graph-label-toggle" id="toggleGraphLabels" type="button" aria-pressed="false">显示名称</button>
+              <span class="graph-toolbar-spacer"></span>
+              <button class="graph-action" id="zoomOut" type="button" aria-label="缩小任务图">−</button>
+              <output id="graphZoomValue">100%</output>
+              <button class="graph-action" id="zoomIn" type="button" aria-label="放大任务图">+</button>
+              <button class="graph-action graph-fit" id="fitGraph" type="button">适应视图</button>
+            </div>
+            <div class="graph-stage" id="graphStage">
+              <canvas id="graphCanvas" tabindex="0" aria-label="任务节点与依赖连线，方向键切换节点，回车打开详情"></canvas>
+              <div class="graph-empty hidden" id="graphEmpty">此章节没有可显示的任务坐标</div>
+            </div>
+            <div class="graph-footer">
+              <span id="graphHint">拖动空白处平移 · 滚轮缩放 · 点击节点打开任务详情</span>
+              <span id="crossChapterDeps" class="cross-dependency-list"></span>
+            </div>
+          </section>
+          <div class="canvas-footer"><span id="renderNote">FTB Quests · 离线近似</span><span id="canvasSize">—</span></div>
+        </section>
+
+        <aside class="inspector">
+          <div class="inspector-head">
+            <div>
+              <div class="section-kicker">PREVIEW SETTINGS</div>
+              <h2>预览设置</h2>
+            </div>
+            <button class="reset-button" id="resetDraft" type="button" title="恢复任务说明原文">重置说明</button>
+          </div>
+          <p class="scope-note">面板宽度、GUI 缩放、分页与草稿只影响任务详情；语言同时用于详情与任务图。</p>
+
+          <div class="control-group">
+            <label for="locale">语言</label>
+            <select id="locale"></select>
+          </div>
+
+          <div class="control-group width-control">
+            <div class="control-label-row"><label for="panelWidth">面板逻辑宽度</label><output id="widthValue">220 px</output></div>
+            <input id="panelWidth" type="range" min="180" max="640" step="4" value="220" />
+            <div class="range-ends"><span>180</span><span>640</span></div>
+          </div>
+
+          <div class="control-group scale-control">
+            <div class="control-label-row"><label for="guiScale">GUI 缩放</label><output id="scaleValue">1×</output></div>
+            <input id="guiScale" type="range" min="1" max="4" step="1" value="1" />
+            <div class="scale-ticks"><span>1×</span><span>2×</span><span>3×</span><span>4×</span></div>
+          </div>
+
+          <div class="page-control">
+            <span>说明页</span>
+            <div class="page-buttons">
+              <button id="prevPage" class="page-arrow" type="button" aria-label="上一页">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 4.5-5 5.5 5 5.5"></path></svg>
+              </button>
+              <output id="pageValue">1 / 1</output>
+              <button id="nextPage" class="page-arrow" type="button" aria-label="下一页">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7.5 4.5 5 5.5-5 5.5"></path></svg>
+              </button>
+            </div>
+          </div>
+
+          <div id="questEditor"></div>
+          <div class="draft-heading"><label for="draft">任务说明</label><span>与其他字段共用同一草稿</span></div>
+          <textarea id="draft" spellcheck="false" aria-label="任务说明编辑和预览"></textarea>
+          <div class="draft-help">编辑模式下实时预览并纳入同一保存草稿。支持 <code>&amp;颜色 / 格式</code>、空行与独立行 <code>{@pagebreak}</code>；<code>{image:...}</code> 仍由原预览器处理。</div>
+
+          <div class="inspector-divider"></div>
+          <div class="accuracy-note">
+            <span class="note-mark">i</span>
+            <p><strong>离线近似</strong>　正文 ASCII 取本机 Minecraft 字形图集；常用 CJK 取 asset-index 的 Unihex 位图与 advance（16 px 字形缩至 8 px，宽字符 advance 为 9 px）。缺失字形、优先级更高的少量标点、标题/任务标签的绘制与 MC shader、换行边界和主题细节仍有差异。</p>
+          </div>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

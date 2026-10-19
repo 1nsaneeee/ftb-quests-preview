@@ -1,0 +1,31 @@
+.graph-view { min-height: 0; flex: 1; display: flex; flex-direction: column; }
+.graph-view.hidden { display: none; }
+.graph-toolbar { min-height: 48px; flex: none; display: flex; align-items: center; flex-wrap: wrap; align-content: center; gap: 6px 8px; padding: 6px 15px; background: #202424; border-bottom: 1px solid #2f3633; }
+.graph-toolbar label { color: #c1c8c1; font-size: 11px; white-space: nowrap; }
+.graph-toolbar select { flex: 0 1 auto; width: min(260px, 30%); min-width: 140px; height: 30px; padding: 0 9px; color: #e0e5df; background: #282d2c; border: 1px solid #444b47; font-size: 11px; }
+.graph-toolbar-spacer { flex: 1; }
+.graph-action { flex: none; min-width: 32px; height: 30px; padding: 0 9px; color: #d7ddd6; background: #292e2d; border: 1px solid #454c48; font-size: 12px; white-space: nowrap; }
+.graph-action:hover { color: #f0d28b; border-color: #937539; }
+.graph-fit { font-size: 11px; }
+#graphZoomValue { min-width: 48px; color: #e1bd68; text-align: center; font: 11px var(--mono); }
+.graph-stage { position: relative; min-height: 0; flex: 1; overflow: hidden; background-color: #202424; background-image: radial-gradient(#3b413e 0.7px, transparent 0.7px); background-size: 20px 20px; cursor: grab; touch-action: none; }
+.graph-stage.dragging { cursor: grabbing; }
+#graphCanvas { display: block; width: 100%; height: 100%; }
+.graph-empty { position: absolute; inset: 0; display: grid; place-items: center; color: #bdc5be; font-size: 13px; pointer-events: none; }
+.graph-empty.hidden { display: none; }
+.graph-footer { min-height: 38px; flex: none; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 0 16px; color: #aeb7af; background: #1d2121; border-top: 1px solid #303634; font-size: 11px; }
+.cross-dependency-list { color: #e1bd68; text-align: right; }
+.cross-dependency-list { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 68%; max-height: 86px; overflow: auto; }
+.cross-dependency-list > span { align-self: center; }
+.cross-dependency-list button { margin-left: 0; padding: 3px 7px; color: #f0d28b; background: #332d20; border: 1px solid #69542d; font-size: 11px; }
+
+@media (max-width: 1050px) {
+  .graph-toolbar { flex-wrap: wrap; gap: 6px; padding: 7px 10px; }
+  .graph-toolbar select { width: min(220px, 45%); }
+  .graph-footer { align-items: flex-start; flex-direction: column; justify-content: center; gap: 4px; padding: 7px 11px; }
+}
+
+@media (max-width: 700px) {
+  .graph-toolbar { min-height: 46px; }
+  .graph-toolbar select { width: min(200px, 45%); }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "ftb-quests-preview",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "setup": "node install.mjs",
+    "cli": "node cli.mjs",
+    "check": "node scripts/check-syntax.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

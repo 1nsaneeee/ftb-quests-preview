@@ -1,0 +1,34 @@
+{
+	id: "demo_a"
+	title: "Demo: Getting started"
+	icon: { id: "minecraft:compass" }
+	group: "demo_group"
+	default_quest_shape: "hexagon"
+	default_quest_size: 1.0d
+	default_hide_dependency_lines: false
+	images: [{ image: "demo:banner", x: 0.0d, y: -1.0d, width: 3.0d, height: 1.0d, rotation: 0.0d }]
+	quests: [
+		{
+			id: "demo_first"
+			title: "First steps"
+			quest_desc: ["A synthetic quest for trying the preview.", "No Minecraft files are bundled."]
+			icon: { id: "minecraft:book" }
+			x: 0.0d
+			y: 0.0d
+			tasks: [{ id: "demo_task_a" type: "checkmark" }]
+			rewards: []
+		}
+		{
+			id: "demo_second"
+			title: "Continue"
+			quest_desc: ["A dependency edge is included for graph previews."]
+			icon: { id: "minecraft:paper" }
+			x: 2.5d
+			y: 0.0d
+			shape: "gear"
+			size: 1.5d
+			dependencies: ["demo_first"]
+			tasks: [{ id: "demo_task_b" type: "checkmark" }]
+		}
+	]
+}

@@ -1,0 +1,35 @@
+.quest-editor[hidden] { display: none; }
+.quest-editor { margin: 0 0 17px; padding: 13px 11px 11px; background: #202524; border: 1px solid #454b45; }
+.editor-heading { display: flex; align-items: end; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.editor-heading h3 { margin: 2px 0 0; color: #e1e6df; font-size: 13px; font-weight: 600; }
+.editor-change-count { color: #e1bd68; font: 11px var(--mono); white-space: nowrap; }
+.editor-fields { display: grid; gap: 9px; }
+.editor-field { display: grid; gap: 5px; color: #c4ccc5; font-size: 11px; }
+.editor-field input { min-width: 0; width: 100%; height: 32px; padding: 0 8px; color: #e0e5df; background: #191d1c; border: 1px solid #414945; border-radius: 0; font: 12px var(--mono); }
+.editor-field input:focus { border-color: #a0803e; outline: 2px solid #d6ab4e; outline-offset: 1px; }
+.editor-field input:disabled { color: #8c958e; opacity: .72; }
+.editor-coordinates { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.editor-snap { display: flex; align-items: center; gap: 7px; margin-top: 11px; color: #bcc4bd; font-size: 11px; }
+.editor-snap input { accent-color: #d3aa4b; }
+.editor-hint { margin: 7px 0 0; color: #99a39b; font-size: 10.5px; line-height: 1.55; }
+.editor-message { min-height: 16px; margin: 9px 0; color: #aeb8b0; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.editor-message.error { color: #e7a391; }
+.editor-actions { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.editor-actions button { min-height: 32px; padding: 6px 8px; border: 1px solid #4a514d; border-radius: 0; font-size: 11px; }
+.editor-save { color: #f0d99f; background: #40351f; border-color: #806531 !important; }
+.editor-save:hover:not(:disabled) { background: #514223; }
+.editor-discard { color: #c1c9c1; background: #292e2d; }
+.editor-actions button:disabled { color: #848d86; opacity: .7; cursor: default; }
+#toggleGraphEditing[aria-pressed="true"] { color: #f0d28b; border-color: #937539; background: #342d20; }
+.graph-stage.editing-layout { cursor: crosshair; }
+.graph-stage.editing-layout.dragging { cursor: grabbing; }
+
+@media (max-width: 1050px) {
+  #questEditor { grid-column: 1 / -1; }
+  .quest-editor { grid-column: 1 / -1; }
+  .editor-actions { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 700px) {
+  .editor-actions { grid-template-columns: 1fr; }
+}

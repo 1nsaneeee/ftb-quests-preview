@@ -1,0 +1,7 @@
+{
+	"chapter.demo_a.title": "Demo: Getting started"
+	"chapter_group.demo_group.title": "Demo group"
+	"quest.demo_first.title": "First steps"
+	"quest.demo_first.quest_subtitle": "A subtitle from the locale file"
+	"quest.demo_second.title": "Continue"
+}
