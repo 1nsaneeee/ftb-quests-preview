@@ -31,10 +31,6 @@ npm install -g ftb-quests-preview
 ftbquest
 ```
 
-当前 npm registry 发布的是 0.1.0；本次 0.1.1 新增的 `ftbquest skill install` 和 UI 改动，在 0.1.1 发布到 npm 前尚不包含于 registry 包。要提前使用这些新功能，请安装下方的 0.1.1 GitHub Release tarball，或在源码目录运行 `npm link`。
-
-`ftbquest` 默认会启动本地预览并打开浏览器。第一次启动没有数据源时，网页会显示设置页：选择 Minecraft 实例、单独的 quests 数据目录，或内置 demo。配置保存在用户配置目录，不需要再运行安装脚本，也不会写进 npm 包目录。
-
 安装后用 `ftbquest skill install` 把 skill 安装到默认 agent 目录 `~/.agents/skills/ftbquests`（Windows 为 `%USERPROFILE%\.agents\skills\ftbquests`）；也可用 `--target` 指定 skills 目录。CLI 随时可以用 `ftbquest skill` 打印说明。旧命令 `ftbquest install-skill` 仍作为兼容别名保留；完全相同的目标会幂等成功，不同或含定制文件的目标会拒绝覆盖。
 
 也可以先下载 tarball 离线安装：
