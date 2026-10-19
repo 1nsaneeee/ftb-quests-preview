@@ -8,14 +8,14 @@
 
 需要 Node.js 20+，推荐 24 LTS。
 
-npm 上最新是 0.1.1：
+直接从 npm 安装：
 
 ```sh
 npm install -g ftb-quests-preview
 ftbquest --version
 ```
 
-离线安装也可以用 GitHub Release 的 tarball：`npm install -g .\ftb-quests-preview-0.1.1.tgz`。
+离线安装也可以下载 GitHub Release 的 tarball：`npm install -g .\ftb-quests-preview-<版本>.tgz`。
 
 从源码跑：
 

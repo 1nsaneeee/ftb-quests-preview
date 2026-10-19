@@ -1,6 +1,6 @@
 {
   "name": "ftb-quests-preview",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local FTB Quests preview/editor with an AI-first CLI.",
   "license": "MIT",
   "repository": {
