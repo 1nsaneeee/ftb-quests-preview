@@ -26,8 +26,14 @@ async function loadSetup() {
   try {
     const response = await fetch("/api/setup", { cache: "no-store" });
     const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error ?? `HTTP ${response.status}`);
+    if (!response.ok) throw new Error(payload.message ?? payload.error ?? `HTTP ${response.status}`);
     configPath.textContent = payload.configPath ?? "(unknown)";
+    const help = document.querySelector("#pathHelp");
+    if (help) help.textContent = `路径由运行 ftbquest 的 ${payload.platform ?? "本机"} 进程读取；相对路径基于 ${payload.cwd ?? "启动目录"}。支持 ~ 和带引号的路径。WSL 请用 /home/... 或 /mnt/c/...，不是 Windows 浏览器看到的 C:\\...。`;
+    if (payload.platform && payload.platform !== "win32") {
+      document.querySelector("#instanceRoot").placeholder = "~/Minecraft/my-pack/.minecraft";
+      document.querySelector("#dataDir").placeholder = "~/Minecraft/my-pack/config/ftbquests/quests";
+    }
     if (payload.current?.source && payload.current.source !== "unconfigured") {
       setStatus(`当前数据源：${payload.current.source}${payload.current.isDemo ? "（demo）" : ""}`);
     }
@@ -53,6 +59,7 @@ async function waitForRestart() {
     }
   }
   setStatus("配置已保存，但自动重启超时。请关闭终端后重新运行 ftbquest。", true);
+  submit.disabled = false;
 }
 
 form.addEventListener("submit", async event => {
@@ -74,7 +81,7 @@ form.addEventListener("submit", async event => {
       body: JSON.stringify(body),
     });
     const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error ?? `HTTP ${response.status}`);
+    if (!response.ok) throw new Error(payload.message ?? payload.error ?? `HTTP ${response.status}`);
     setStatus("配置已保存，正在重启预览…");
     await waitForRestart();
   } catch (error) {

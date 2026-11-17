@@ -4,6 +4,7 @@ import { parseSnbt } from "../parse-snbt.mjs";
 import { revisionHash } from "./save-service.mjs";
 import { QUEST_SHAPES } from "./schema.mjs";
 import { lintStore } from "./lint.mjs";
+import { questTitle } from "./quest-title.mjs";
 
 const DEFAULT_LOCALE = "en_us";
 const LOCALE_PATTERN = /^[a-zA-Z0-9_-]{2,32}$/;
@@ -154,7 +155,7 @@ export class QuestStore {
       const chapterTitle = localized(strings, fallbackStrings, `chapter.${id}.title`) ?? raw.title ?? id;
       const chapterSubtitle = localized(strings, fallbackStrings, `chapter.${id}.chapter_subtitle`) ?? raw.subtitle ?? "";
       const quests = asArray(raw.quests).map(questRaw => buildQuest({
-        questRaw, chapterId: id, chapterFile: file, source, strings, fallbackStrings,
+        questRaw, chapterId: id, chapterFile: file, source, strings, fallbackStrings, locale: usedLocale,
       }));
       chapters.push({
         id,
@@ -355,15 +356,12 @@ async function loadLocaleStrings(localeDir, locale) {
   return parsed;
 }
 
-function buildQuest({ questRaw, chapterId, chapterFile, source, strings, fallbackStrings }) {
+function buildQuest({ questRaw, chapterId, chapterFile, source, strings, fallbackStrings, locale }) {
   const id = typeof questRaw.id === "string" ? questRaw.id : "";
-  const localeTitle = localized(strings, fallbackStrings, `quest.${id}.title`);
   const localeSubtitle = localized(strings, fallbackStrings, `quest.${id}.quest_subtitle`);
   const localeDescription = localized(strings, fallbackStrings, `quest.${id}.quest_desc`);
-  const inlineTitle = typeof questRaw.title === "string" ? questRaw.title : undefined;
   const inlineSubtitle = typeof questRaw.subtitle === "string" ? questRaw.subtitle : undefined;
-  const titleSource = localeTitle !== undefined ? "locale" : inlineTitle !== undefined ? "inline" : "id";
-  const title = localeTitle ?? inlineTitle ?? (id || "(missing id)");
+  const { title, titleSource } = questTitle(questRaw, strings, fallbackStrings, { locale });
   const subtitle = localeSubtitle ?? inlineSubtitle ?? "";
   const description = normalizeDescription(localeDescription ?? questRaw.quest_desc);
   return {

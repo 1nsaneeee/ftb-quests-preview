@@ -3,6 +3,8 @@ import {
   autocompletion,
   clearSnippet,
   closeCompletion,
+  closeBrackets,
+  closeBracketsKeymap,
   completionStatus,
   hasNextSnippetField,
   hasPrevSnippetField,
@@ -12,14 +14,17 @@ import {
   startCompletion,
 } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { Compartment, EditorState, Transaction } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
+import { openSearchPanel, search, searchKeymap, searchPanelOpen } from "@codemirror/search";
 import { EditorView, drawSelection, highlightSpecialChars, keymap, placeholder } from "@codemirror/view";
 import { descriptionCompletionSource } from "../lib/description-completions.js";
+import { formatSelection, insertLink } from "../lib/description-commands.js";
 
 const DIVIDER_STEP = 24;
 const DIVIDER_LARGE_STEP = 96;
 const MIN_EDITOR_HEIGHT = 120;
 const MIN_PREVIEW_HEIGHT = 160;
+const MAX_CACHED_QUESTS = 100;
 
 const editorTheme = EditorView.theme({
   "&": {
@@ -81,6 +86,7 @@ export class DescriptionEditor {
     this.extensions = null;
     this.questKey = "";
     this.lastDoc = null;
+    this.sessions = new Map();
     this.editable = true;
     this.editableCompartment = new Compartment();
     this.drag = null;
@@ -106,6 +112,15 @@ export class DescriptionEditor {
       history(),
       drawSelection(),
       highlightSpecialChars(),
+      closeBrackets(),
+      EditorState.languageData.of(() => [{ closeBrackets: { brackets: ["{", "["] } }]),
+      search({ top: true }),
+      EditorState.phrases.of({
+        Find: "查找正文", Replace: "替换为", next: "下一个", previous: "上一个", all: "全选匹配",
+        replace: "替换", "replace all": "全部替换", "match case": "区分大小写",
+        regexp: "正则表达式", "by word": "完整单词", close: "关闭", "No matches": "没有匹配项",
+      }),
+      EditorView.contentAttributes.of({ "aria-label": "任务说明正文", spellcheck: "false" }),
       EditorView.lineWrapping,
       EditorState.tabSize.of(2),
       placeholder("输入任务说明：& 颜色 / 格式，{@pagebreak} 分页，Tab 接受补全"),
@@ -128,6 +143,10 @@ export class DescriptionEditor {
       }),
       keymap.of([
         { key: "Mod-s", run: () => { this.handlers.save(); return true; }, preventDefault: true },
+        { key: "Mod-b", run: formatSelection("l"), preventDefault: true },
+        { key: "Mod-i", run: formatSelection("o"), preventDefault: true },
+        { key: "Mod-u", run: formatSelection("n"), preventDefault: true },
+        { key: "Mod-Shift-k", run: insertLink, preventDefault: true },
         { key: "Tab", run: view => this.onTab(view) },
         { key: "Shift-Tab", run: view => this.onShiftTab(view) },
         { key: "Escape", run: view => this.onEscape(view) },
@@ -137,10 +156,11 @@ export class DescriptionEditor {
         { key: "PageUp", run: view => this.onArrow(view, false, "page") },
         { key: "Enter", run: view => completionIsOpen(view) ? acceptCompletion(view) : false },
       ]),
-      keymap.of([...historyKeymap, ...defaultKeymap]),
-      this.editableCompartment.of(EditorView.editable.of(true)),
+      keymap.of([...closeBracketsKeymap, ...searchKeymap, ...historyKeymap, ...defaultKeymap]),
+      this.editableCompartment.of([EditorView.editable.of(true), EditorState.readOnly.of(false)]),
       editorTheme,
       EditorView.updateListener.of(update => {
+        this.syncSearchLayout(update.state);
         if (!update.docChanged) return;
         const text = update.state.doc.toString();
         if (text === this.lastDoc) return;
@@ -185,30 +205,63 @@ export class DescriptionEditor {
     startCompletion(view);
   }
 
+  runAction(action) {
+    const view = this.ensureView();
+    const command = { bold: formatSelection("l"), link: insertLink, search: openSearchPanel }[action];
+    if (!command) return;
+    view.focus();
+    command(view);
+  }
+
+  resetHistory(prefix = "") {
+    for (const key of this.sessions.keys()) if (key.startsWith(prefix)) this.sessions.delete(key);
+    if (this.view && this.questKey.startsWith(prefix)) {
+      this.view.setState(EditorState.create({ doc: this.view.state.doc, extensions: this.extensions }));
+      this.syncSearchLayout(this.view.state);
+      this.setEditable(this.editable);
+    }
+  }
+
   update({ questKey, doc, editable = true }) {
     const view = this.ensureView();
     if (questKey !== this.questKey) {
+      if (this.questKey) {
+        this.sessions.delete(this.questKey);
+        this.sessions.set(this.questKey, { state: view.state, scrollTop: view.scrollDOM.scrollTop });
+        if (this.sessions.size > MAX_CACHED_QUESTS) this.sessions.delete(this.sessions.keys().next().value);
+      }
+      const cached = this.sessions.get(questKey);
+      const restore = cached?.state.doc.toString() === doc;
+      this.sessions.delete(questKey);
       this.questKey = questKey;
       this.lastDoc = doc;
-      view.setState(EditorState.create({ doc, extensions: this.extensions }));
+      view.setState(restore ? cached.state : EditorState.create({ doc, extensions: this.extensions }));
+      this.syncSearchLayout(view.state);
       this.setEditable(editable, view);
+      view.scrollDOM.scrollTop = restore ? cached.scrollTop : 0;
       return;
     }
     if (doc !== view.state.doc.toString()) {
       this.lastDoc = doc;
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: doc },
-        annotations: Transaction.addToHistory.of(false),
-      });
+      // Reloaded source has a new baseline; old undo steps must not revive it.
+      view.setState(EditorState.create({ doc, extensions: this.extensions }));
+      this.syncSearchLayout(view.state);
     }
     this.setEditable(editable, view);
   }
 
   setEditable(editable, view = this.ensureView()) {
     const next = Boolean(editable);
-    if (next === this.editable) return;
     this.editable = next;
-    view.dispatch({ effects: this.editableCompartment.reconfigure(EditorView.editable.of(next)) });
+    if (view.state.facet(EditorView.editable) === next && view.state.readOnly === !next) return;
+    view.dispatch({ effects: this.editableCompartment.reconfigure([EditorView.editable.of(next), EditorState.readOnly.of(!next)]) });
+  }
+
+  syncSearchLayout(state) {
+    const open = searchPanelOpen(state);
+    if (this.workbench.classList.contains("search-open") === open) return;
+    this.workbench.classList.toggle("search-open", open);
+    this.setPaneHeight(open ? Math.max(280, this.paneHeight) : this.paneHeight);
   }
 
   readPaneHeight() {
@@ -297,6 +350,7 @@ export class DescriptionEditor {
     this.divider.removeEventListener("keydown", this.boundKeyDown);
     window.removeEventListener("resize", this.boundWindowResize);
     this.view?.destroy();
+    this.sessions.clear();
     this.view = null;
   }
 }

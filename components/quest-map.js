@@ -1,3 +1,5 @@
+import { drawFormattedText, plainText, renderFormattedText } from "../lib/formatted-text.js";
+
 const KNOWN_SHAPES = new Set(["circle", "square", "hexagon", "gear"]);
 
 export class QuestMap {
@@ -96,7 +98,7 @@ export class QuestMap {
       this.chapterSelect.replaceChildren(...data.chapters.map(chapter => {
         const option = document.createElement("option");
         option.value = chapter.id;
-        option.textContent = chapter.title;
+        option.textContent = plainText(chapter.title);
         return option;
       }));
       this.chapterSelect.dataset.chapterOptions = chapterOptionsKey;
@@ -148,8 +150,12 @@ export class QuestMap {
     for (const entry of entries) {
       const button = document.createElement("button");
       button.type = "button";
-      button.title = `${entry.dependency.quest.title}（${entry.dependency.chapter.title}）→ ${entry.target.title}`;
-      button.textContent = `${entry.dependency.quest.title} → ${entry.target.title}`;
+      button.title = `${plainText(entry.dependency.quest.title)}（${plainText(entry.dependency.chapter.title)}）→ ${plainText(entry.target.title)}`;
+      const from = document.createElement("span");
+      const to = document.createElement("span");
+      renderFormattedText(from, entry.dependency.quest.title);
+      renderFormattedText(to, entry.target.title);
+      button.append(from, " → ", to);
       button.addEventListener("click", () => {
         this.chapterId = entry.dependency.chapter.id;
         this.chapterSelect.value = this.chapterId;
@@ -251,7 +257,7 @@ export class QuestMap {
       ?? this.nodeHitboxes.find(hit => hit.quest.id === this.selectedQuestId);
     if (accessibleNode) {
       this.canvas.title = accessibleNode.tooltip;
-      this.canvas.setAttribute("aria-label", `当前任务节点：${accessibleNode.quest.title}。方向键切换节点，回车打开任务详情。`);
+      this.canvas.setAttribute("aria-label", `当前任务节点：${plainText(accessibleNode.quest.title)}。方向键切换节点，回车打开任务详情。`);
     }
     const missingCount = chapter.quests.length - nodes.length;
     const label = this.editing
@@ -347,24 +353,24 @@ export class QuestMap {
       ctx.font = "bold 11px 'Microsoft YaHei UI', sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(node.quest.title.slice(0, 1), x, y);
+      ctx.fillText(Array.from(plainText(node.quest.title))[0] ?? "", x, y);
     }
     ctx.restore();
-    const tooltip = `${node.quest.title}\n坐标 (${node.quest.x}, ${node.quest.y})\n形状 ${shapeId}${fallback ? "（未知，圆形回退）" : ""} · 尺寸 ${node.size}\n依赖 ${node.quest.dependencies?.length ?? 0} 项`;
+    const tooltip = `${plainText(node.quest.title)}\n坐标 (${node.quest.x}, ${node.quest.y})\n形状 ${shapeId}${fallback ? "（未知，圆形回退）" : ""} · 尺寸 ${node.size}\n依赖 ${node.quest.dependencies?.length ?? 0} 项`;
     this.nodeHitboxes.push({ x, y, radius: size + 5, quest: node.quest, tooltip });
     if (!this.showLabels && node.quest.id !== this.selectedQuestId && node.quest.id !== this.hoveredQuestId) return;
     const text = node.quest.title;
     ctx.font = "11px 'Microsoft YaHei UI', 'Segoe UI', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    const textWidth = Math.min(172, Math.max(size * 2.4, ctx.measureText(text).width + 14));
+    const textWidth = Math.min(172, Math.max(size * 2.4, ctx.measureText(plainText(text)).width + 14));
     ctx.fillStyle = "#1b1e1d";
     ctx.fillRect(x - textWidth / 2, y + size + 7, textWidth, 21);
     ctx.strokeStyle = isSelected ? "#947336" : "#424945";
     ctx.lineWidth = 1;
     ctx.strokeRect(x - textWidth / 2 + .5, y + size + 7.5, textWidth - 1, 20);
     ctx.fillStyle = isSelected ? "#f4dfa9" : isRelated ? "#ded3b5" : "#c3cbc4";
-    ctx.fillText(text, x, y + size + 11, textWidth - 10);
+    drawFormattedText(ctx, text, x, y + size + 11, { maxWidth: textWidth - 10, align: "center", color: ctx.fillStyle });
   }
 
   pointerDown(event) {

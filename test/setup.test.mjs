@@ -154,11 +154,11 @@ async function makeTemporaryPackage(root) {
   return appDir;
 }
 
-test("first-run setup writes config, restarts, and then serves data", async t => {
+test("first-run setup accepts a quoted path with spaces, restarts, and serves data", async t => {
   const root = await mkdtemp(join(tmpdir(), "quest-setup-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const configPath = join(root, "config.json");
-  const dataDir = join(root, "quests");
+  const dataDir = join(root, "quests with spaces");
   await cp(fixtureQuestDir, dataDir, { recursive: true });
 
   const first = await startServer(t, ["--config", configPath]);
@@ -169,7 +169,7 @@ test("first-run setup writes config, restarts, and then serves data", async t =>
   const response = await fetch(`${first.base}/api/setup`, {
     method: "POST",
     headers: { "content-type": "application/json", origin: first.origin },
-    body: JSON.stringify({ mode: "data", dataDir }),
+    body: JSON.stringify({ mode: "data", dataDir: `"${dataDir}"` }),
   });
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, restart: true, configPath });

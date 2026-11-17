@@ -71,6 +71,63 @@ function postHeaders(server, token, origin = server.origin) {
   return { "content-type": "application/json", origin, "x-quest-preview-token": token };
 }
 
+test("API derives task titles using instance language resources without rewriting quest data", async t => {
+  const root = await mkdtemp(join(tmpdir(), "quest-preview-auto-title-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const questDir = join(root, "config", "ftbquests", "quests");
+  await mkdir(join(questDir, "chapters"), { recursive: true });
+  await mkdir(join(questDir, "lang"), { recursive: true });
+  await mkdir(join(root, "mods"));
+  await mkdir(join(root, "resourcepacks"));
+  const chapter = '{ id: "c" quests: [{ id: "auto" tasks: [{ id: "t" type: "item" item: { id: "example:manual" } }] }] }';
+  await writeFile(join(questDir, "chapters", "c.snbt"), chapter);
+  await writeFile(join(questDir, "lang", "zh_cn.snbt"), '{}');
+  await writeFile(join(root, "mods", "example.jar"), storedZip({
+    "assets/example/lang/en_us.json": '{"item.example.manual":"Engineering Manual"}',
+    "assets/example/lang/zh_cn.json": '{"item.example.manual":"工程师手册"}',
+    "assets/broken/lang/zh_cn.json": '{"item.broken.name":',
+  }));
+  await writeFile(join(root, "resourcepacks", "names.zip"), storedZip({
+    "assets/example/lang/zh_cn.json": '{"item.example.manual":"定制手册"}',
+  }));
+  const server = await startServer(t, ["--instance-root", root]);
+  const response = await fetch(`${server.base}/api/data?locale=zh_cn`);
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.chapters[0].quests[0].title, "定制手册");
+  assert.equal(payload.chapters[0].quests[0].titleSource, "task");
+  assert.equal(payload.resourceWarnings.length, 1);
+  assert.match(payload.resourceWarnings[0], /example\.jar:assets\/broken\/lang\/zh_cn\.json/);
+  assert.equal(await readFile(join(questDir, "chapters", "c.snbt"), "utf8"), chapter);
+});
+
+// A small, valid stored ZIP keeps this integration test independent of zip CLIs.
+function storedZip(files) {
+  const local = [], central = [];
+  let offset = 0;
+  for (const [path, source] of Object.entries(files)) {
+    const name = Buffer.from(path), data = Buffer.from(source);
+    let crc = 0xffffffff;
+    for (const byte of data) {
+      crc ^= byte;
+      for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+    crc = (crc ^ 0xffffffff) >>> 0;
+    const header = Buffer.alloc(30);
+    header.writeUInt32LE(0x04034b50); header.writeUInt16LE(20, 4);
+    header.writeUInt32LE(crc, 14); header.writeUInt32LE(data.length, 18); header.writeUInt32LE(data.length, 22); header.writeUInt16LE(name.length, 26);
+    const record = Buffer.alloc(46);
+    record.writeUInt32LE(0x02014b50); record.writeUInt16LE(20, 4); record.writeUInt16LE(20, 6);
+    record.writeUInt32LE(crc, 16); record.writeUInt32LE(data.length, 20); record.writeUInt32LE(data.length, 24); record.writeUInt16LE(name.length, 28); record.writeUInt32LE(offset, 42);
+    local.push(header, name, data); central.push(record, name);
+    offset += header.length + name.length + data.length;
+  }
+  const directory = Buffer.concat(central), end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50); end.writeUInt16LE(Object.keys(files).length, 8); end.writeUInt16LE(Object.keys(files).length, 10);
+  end.writeUInt32LE(directory.length, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...local, directory, end]);
+}
+
 function requestWithHost(server, host) {
   const port = Number(new URL(server.base).port);
   return new Promise((resolve, reject) => {

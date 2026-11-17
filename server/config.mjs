@@ -1,6 +1,7 @@
 import { lstat, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { resolveInputPath } from "./input-path.mjs";
 
 export const LOCAL_CONFIG_NAME = "quest-preview.local.json";
 export const USER_CONFIG_DIR = "ftb-quests-preview";
@@ -67,7 +68,7 @@ function configuredPath(value, baseDirectory, label) {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${label} must be a non-empty path`);
   }
-  return resolve(baseDirectory, value);
+  return resolveInputPath(value, baseDirectory);
 }
 
 async function fileExists(path) {

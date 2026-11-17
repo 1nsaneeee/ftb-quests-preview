@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { QuestDetails } from "../components/quest-details.js";
+import { pageElements } from "../lib/minecraft-text.js";
 
 globalThis.window = {
   devicePixelRatio: 1,
@@ -24,6 +25,8 @@ function makeCanvas() {
     imageSmoothingEnabled: false,
     globalAlpha: 1,
     setTransform() {},
+    save() {},
+    restore() {},
     fillRect() {},
     fillText(text, x, y) { drawnText.push({ text, x, y }); },
     strokeRect() {},
@@ -44,7 +47,7 @@ function makeCanvas() {
   };
 }
 
-function makeDetails({ onPageChange = () => {}, onPageInfo = () => {} } = {}) {
+function makeDetails({ onPageChange = () => {}, onPageInfo = () => {}, onOpenLink = () => {} } = {}) {
   const canvas = makeCanvas();
   const scroll = { clientWidth: 1000, clientHeight: 600, addEventListener() {}, removeEventListener() {} };
   const details = new QuestDetails({
@@ -53,9 +56,10 @@ function makeDetails({ onPageChange = () => {}, onPageInfo = () => {} } = {}) {
     stage: { style: {} },
     canvasSize: { textContent: "" },
     getAsset: () => null,
-    textRenderer: { elements: lines => lines.map(line => ({ type: "text", lines: [line] })), drawTokens() {} },
+    textRenderer: { elements: (lines, width) => pageElements(lines, width, () => 5), drawTokens() {}, advance: () => 5 },
     onPageInfo,
     onPageChange,
+    onOpenLink,
   });
   details.mount();
   return { canvas, details, scroll, resizeObserver: latestResizeObserver };
@@ -99,6 +103,24 @@ test("canvas Next changes to the next page at GUI scales 1, 2, and 4", () => {
     assert.deepEqual(changedPages, [1], `scale ${scale}`);
     details.destroy();
   }
+});
+
+test("JSON link hit areas follow wrapping, scale and scroll; stale page links disappear", () => {
+  const opened = [];
+  const { details, canvas } = makeDetails({ onOpenLink: href => opened.push(href) });
+  const state = snapshot(0, 2);
+  state.draft = JSON.stringify({ text: "打开网页".repeat(15), color: "aqua", underlined: true,
+    clickEvent: { action: "open_url", value: "https://www.mcmod.cn" } }) + "\n{@pagebreak}\nB";
+  details.update(state);
+  assert.ok(new Set(details.linkHitAreas.map(area => area.top)).size > 1);
+  const hit = details.linkHitAreas.at(-1);
+  canvas.rect = { ...canvas.rect, left: -100, top: -30 };
+  clickCanvasPage(canvas, 2, hit.left + 1, hit.top + 1);
+  assert.deepEqual(opened, ["https://www.mcmod.cn/"]);
+  details.update({ ...state, page: 1 });
+  clickCanvasPage(canvas, 2, hit.left + 1, hit.top + 1);
+  assert.equal(opened.length, 1);
+  details.destroy();
 });
 
 test("canvas paging uses the current canvas rect after scrolling and does not expose disabled directions", () => {

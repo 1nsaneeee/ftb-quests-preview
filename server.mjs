@@ -12,6 +12,8 @@ import { loadPreviewConfig } from "./server/config.mjs";
 import { readChapterGroups } from "./server/chapter-groups.mjs";
 import { revisionHash, saveQuestChanges } from "./server/save-service.mjs";
 import { prepareDemoQuestDir } from "./server/source.mjs";
+import { resolveInputPath } from "./server/input-path.mjs";
+import { questTitle } from "./server/quest-title.mjs";
 
 const appDir = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const rawArgs = process.argv.slice(2);
@@ -41,6 +43,7 @@ const WRITE_TOKEN = randomBytes(32).toString("hex");
 
 const archiveCache = new Map();
 const localeCache = new Map();
+const gameLanguageCache = new Map();
 const clients = new Set();
 let unifontCache;
 let localArchives;
@@ -95,7 +98,7 @@ async function assertSetupQuestDirectory(path) {
 
 function setupPath(value, label) {
   if (typeof value !== "string" || value.trim().length === 0) throw new Error(`${label}不能为空`);
-  return resolve(process.cwd(), value.trim());
+  return resolveInputPath(value, process.cwd());
 }
 
 async function buildSetupConfig(body) {
@@ -347,6 +350,7 @@ async function questData(locale) {
     : parseSnbt(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(localeBytes), `lang/${usedLocale}.snbt`);
   localeCache.set(usedLocale, Promise.resolve(strings));
   const { strings: fallback } = usedLocale === "en_us" ? { strings } : await loadLocale("en_us");
+  const { strings: gameStrings, warnings: resourceWarnings } = await gameLanguage(usedLocale);
   const chapterGroups = await readChapterGroups({ questDir: QUEST_DIR, localeStrings: strings, fallbackStrings: fallback });
   const revisions = Object.fromEntries(chapters.map(({ file, bytes }) => [`chapters/${file}`, revisionHash(bytes)]));
   revisions[`lang/${usedLocale}.snbt`] = localeBytes === null ? null : revisionHash(localeBytes);
@@ -356,6 +360,7 @@ async function questData(locale) {
     defaultQuestShape: defaults.default_quest_shape ?? null,
     gridScale: defaults.grid_scale ?? null,
     supportedLocales,
+    resourceWarnings,
     chapterGroups,
     chapters: chapters.map(({ file, data }) => ({
       id: data.id,
@@ -370,7 +375,7 @@ async function questData(locale) {
       defaultHideDependencyLines: data.default_hide_dependency_lines ?? null,
       quests: (data.quests ?? []).map(quest => ({
         id: quest.id,
-        title: strings[`quest.${quest.id}.title`] ?? fallback[`quest.${quest.id}.title`] ?? quest.title ?? quest.id,
+        ...questTitle(quest, strings, fallback, { locale: usedLocale, gameStrings }),
         subtitle: strings[`quest.${quest.id}.quest_subtitle`] ?? fallback[`quest.${quest.id}.quest_subtitle`] ?? quest.subtitle ?? "",
         description: strings[`quest.${quest.id}.quest_desc`] ?? fallback[`quest.${quest.id}.quest_desc`] ?? quest.quest_desc ?? [],
         icon: quest.icon?.id ?? "",
@@ -391,6 +396,58 @@ async function questData(locale) {
       locale: relativeToRoot(join(LOCALE_DIR, `${usedLocale}.snbt`)),
     },
   };
+}
+
+async function gameLanguage(locale) {
+  if (gameLanguageCache.has(locale)) return gameLanguageCache.get(locale);
+  const fallback = Object.create(null);
+  const translated = Object.create(null);
+  const warnings = [];
+  const merge = (bytes, language, label) => {
+    let data;
+    try {
+      data = JSON.parse(bytes.toString("utf8").replace(/^\uFEFF/, ""));
+      if (!data || typeof data !== "object" || Array.isArray(data)) throw new SyntaxError("Expected a language dictionary");
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      // These are optional display names, not quest source files. Keep editing
+      // available, but report the exact resource that could not be read.
+      const warning = `Invalid language resource ${label}: ${error.message}`;
+      warnings.push(warning);
+      console.warn(warning);
+      return;
+    }
+    const target = language === "en_us" ? fallback : translated;
+    for (const [key, value] of Object.entries(data)) if (typeof value === "string") target[key] = value;
+  };
+  const modDir = await containedPath(root, MOD_DIR, "directory");
+  const mods = modDir ? await optionalFiles(modDir, name => name.endsWith(".jar")) : [];
+  const files = [...new Set([...await localArchiveFiles(), ...mods, ...await activeResourcepacks()])];
+  for (const file of files) {
+    const retained = archiveCache.has(file);
+    try {
+      const pack = await archive(file);
+      for (const name of pack.entries.keys()) {
+        const match = /^assets\/[^/]+\/lang\/([^/]+)\.json$/.exec(name);
+        if (match && (match[1] === "en_us" || match[1] === locale)) merge(await zipRead(file, name), match[1], `${basename(file)}:${name}`);
+      }
+    } finally {
+      // Language lookup must not retain every mod JAR's bytes for the session.
+      if (!retained) archiveCache.delete(file);
+    }
+  }
+  const kubeRoot = await containedPath(root, join(root, "kubejs", "assets"), "directory");
+  if (kubeRoot) {
+    for (const namespace of await optionalDirectories(kubeRoot)) {
+      for (const language of new Set(["en_us", locale])) {
+        const file = await containedPath(kubeRoot, join(kubeRoot, namespace, "lang", `${language}.json`));
+        if (file) merge(await readFile(file), language, file);
+      }
+    }
+  }
+  const result = { strings: Object.assign(Object.create(null), fallback, translated), warnings };
+  gameLanguageCache.set(locale, result);
+  return result;
 }
 
 function relativeToRoot(path) {
@@ -592,6 +649,8 @@ const server = createServer(async (request, response) => {
           needsSetup: Boolean(previewConfig.needsSetup),
           configPath: previewConfig.configPath,
           configExists: Boolean(previewConfig.configExists),
+          platform: process.platform,
+          cwd: process.cwd(),
           current: {
             source: previewConfig.source,
             isDemo: Boolean(previewConfig.isDemo),

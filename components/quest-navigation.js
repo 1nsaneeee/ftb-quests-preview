@@ -1,3 +1,5 @@
+import { plainText, renderFormattedText } from "../lib/formatted-text.js";
+
 export class QuestNavigation {
   constructor({ root, search, getAsset, onSelect }) {
     this.root = root;
@@ -155,7 +157,7 @@ export class QuestNavigation {
   }
 
   matches(value, filter) {
-    return !filter || String(value ?? "").toLocaleLowerCase().includes(filter);
+    return !filter || plainText(value).toLocaleLowerCase().includes(filter);
   }
 
   key(value) {
@@ -174,7 +176,7 @@ export class QuestNavigation {
     chevron.innerHTML = '<svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="m3 4 3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
     const titleNode = document.createElement("span");
     titleNode.className = toggleAttribute === "data-group-toggle" ? "group-title-text" : "chapter-title-text";
-    titleNode.textContent = title;
+    renderFormattedText(titleNode, title);
     const total = document.createElement("span");
     total.className = toggleAttribute === "data-group-toggle" ? "group-total" : "chapter-total";
     total.textContent = String(count).padStart(2, "0");
@@ -190,10 +192,10 @@ export class QuestNavigation {
     if (quest.id === this.selectedQuestId) row.setAttribute("aria-current", "true");
     const icon = document.createElement("span");
     icon.className = "quest-icon";
-    icon.textContent = quest.title.slice(0, 1);
+    icon.textContent = Array.from(plainText(quest.title))[0] ?? "";
     const titleNode = document.createElement("span");
     titleNode.className = "quest-row-title";
-    titleNode.textContent = quest.title;
+    renderFormattedText(titleNode, quest.title);
     if (quest.icon) {
       const image = this.getAsset(quest.icon);
       if (image?.complete && image.naturalWidth) {
@@ -211,7 +213,7 @@ export class QuestNavigation {
         }, { once: true });
       }
     }
-    row.title = `${quest.title} · ${quest.id}`;
+    row.title = `${plainText(quest.title)} · ${quest.id}`;
     row.append(icon, titleNode);
     return row;
   }

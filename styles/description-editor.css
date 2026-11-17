@@ -59,13 +59,14 @@
 }
 
 .description-head {
-  height: 42px;
+  min-height: 44px;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 14px;
+  padding: 8px 14px;
+  flex-wrap: wrap;
   background: #1d2121;
   border-bottom: 1px solid #2c3231;
 }
@@ -92,7 +93,8 @@
 .description-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
+  flex-wrap: wrap;
   min-width: 0;
 }
 
@@ -115,13 +117,27 @@
 
 .completion-entry {
   flex: none;
-  min-height: 26px;
-  padding: 0 10px;
+  min-height: 32px;
+  padding: 6px 10px;
   color: #d5bb80;
   background: #2b2a20;
   border: 1px solid #57492a;
-  font-size: 10px;
+  font-size: 11px;
 }
+
+.completion-entry:focus-visible { outline: 2px solid #f0d28b; outline-offset: 2px; }
+
+.description-editor .cm-search { padding: 10px 30px 10px 12px; font-size: 12px; }
+.description-editor .cm-search label { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.description-editor .cm-search input.cm-textfield { max-width: 100%; min-height: 32px; padding: 6px 8px; color: #e5e9e5; background: #191d1c; border: 1px solid #69726a; font-size: 12px; }
+.description-editor .cm-search input::placeholder { color: #aeb6af; }
+.description-editor .cm-search .cm-button { min-height: 32px; padding: 6px 8px; color: #e5e9e5; background: #303633; border: 1px solid #69726a; font-size: 12px; }
+.description-editor .cm-search :focus-visible { outline: 2px solid #f0d28b; outline-offset: 1px; }
+.description-editor .cm-searchMatch { background: #5a4b21; }
+.description-editor .cm-searchMatch-selected { background: #806325; }
+.preview-workspace:has(.search-open) { overflow-y: auto; }
+.details-workbench.search-open { min-height: 440px; }
+.search-open .description-pane { min-height: 280px; }
 
 .completion-entry:hover {
   color: #f4d894;
@@ -200,8 +216,7 @@ body.resizing-editor * {
 
 @media (max-width: 700px) {
   .description-head {
-    height: 38px;
-    padding: 0 10px;
+    padding: 8px 10px;
   }
 
   .completion-hint {

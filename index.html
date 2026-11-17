@@ -58,17 +58,19 @@
                 <canvas id="questCanvas" aria-label="Minecraft FTB Quests 任务详情面板"></canvas>
               </div>
             </div>
+            <nav id="questLinks" class="quest-links" aria-label="本页外部链接" hidden></nav>
             <div class="editor-divider" id="editorDivider" role="separator" aria-orientation="horizontal" aria-label="调整任务说明编辑区高度" aria-valuemin="120" aria-valuenow="220" aria-valuemax="520" tabindex="0">
               <span class="divider-grip" aria-hidden="true"></span>
             </div>
             <section class="description-pane" id="descriptionPane" aria-label="任务说明编辑">
               <div class="description-head">
                 <div class="description-title">
-                  <div class="section-kicker">DESCRIPTION</div>
                   <h2>任务说明</h2>
                 </div>
                 <div class="description-actions">
-                  <span class="completion-hint"><kbd>Tab</kbd> 接受补全 · <kbd>Esc</kbd> 关闭 · <kbd>Ctrl</kbd>+<kbd>S</kbd> 保存</span>
+                  <button class="completion-entry" type="button" data-editor-action="bold" title="选中文字加粗（Ctrl/Cmd+B）；Ctrl/Cmd+I 斜体，Ctrl/Cmd+U 下划线">加粗</button>
+                  <button class="completion-entry" type="button" data-editor-action="link" title="插入网页链接（Ctrl/Cmd+Shift+K）">链接</button>
+                  <button class="completion-entry" type="button" data-editor-action="search" title="在当前任务正文中查找和替换（Ctrl/Cmd+F）">查找替换</button>
                   <button class="completion-entry" id="openCompletions" type="button">语法补全</button>
                 </div>
               </div>

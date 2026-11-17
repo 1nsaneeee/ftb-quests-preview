@@ -5,6 +5,7 @@ import { PreviewControls, normalizeWidth, widthBoundsFor } from "./components/pr
 import { QuestMap } from "./components/quest-map.js";
 import { QuestNavigation } from "./components/quest-navigation.js";
 import { MinecraftText, splitPages } from "./lib/minecraft-text.js";
+import { renderFormattedText } from "./lib/formatted-text.js";
 
 const ui = {
   chapterList: document.querySelector("#chapterList"), search: document.querySelector("#search"),
@@ -16,6 +17,7 @@ const ui = {
   detailsWorkbench: document.querySelector("#detailsWorkbench"), descriptionPane: document.querySelector("#descriptionPane"),
   descriptionEditor: document.querySelector("#descriptionEditor"), editorDivider: document.querySelector("#editorDivider"),
   openCompletions: document.querySelector("#openCompletions"),
+  editorActions: [...document.querySelectorAll("[data-editor-action]")],
   resetDraft: document.querySelector("#resetDraft"),
   crumbGroup: document.querySelector("#crumbGroup"), crumbChapter: document.querySelector("#crumbChapter"), crumbQuest: document.querySelector("#crumbQuest"),
   renderNote: document.querySelector("#renderNote"), canvasSize: document.querySelector("#canvasSize"),
@@ -90,6 +92,7 @@ const details = new QuestDetails({
   scroll: ui.canvasScroll,
   stage: ui.canvasStage,
   canvasSize: ui.canvasSize,
+  links: document.querySelector("#questLinks"),
   getAsset,
   textRenderer,
   onPageInfo: (page, count) => {
@@ -176,9 +179,9 @@ function renderCrumbs() {
   const selected = findQuest();
   if (!selected) return;
   const group = state.data.chapterGroups?.find(candidate => candidate.id === selected.chapter.group);
-  ui.crumbGroup.textContent = group?.title ?? "未分组";
-  ui.crumbChapter.textContent = selected.chapter.title;
-  ui.crumbQuest.textContent = selected.quest.title;
+  renderFormattedText(ui.crumbGroup, group?.title ?? "未分组");
+  renderFormattedText(ui.crumbChapter, selected.chapter.title);
+  renderFormattedText(ui.crumbQuest, selected.quest.title);
   ui.renderNote.textContent = `FTB Quests · ${state.data.locale} · 离线近似`;
 }
 
@@ -423,6 +426,7 @@ async function discardChanges() {
   if (!window.confirm(`放弃 ${locale} 的所有未保存更改，并重新载入源文件？`)) return;
   const prefix = `${locale}:`;
   for (const key of [...state.editorDrafts.keys()]) if (key.startsWith(prefix)) state.editorDrafts.delete(key);
+  descriptionEditor.resetHistory(prefix);
   state.externalUpdate = false;
   state.saveConflict = false;
   state.editorMessage = "正在重新载入…";
@@ -436,6 +440,7 @@ function onFitGraph() { map.fit(); }
 function onDetailsView() { setView("details"); }
 function onMapView() { setView("map"); }
 function onOpenCompletions() { descriptionEditor.showCompletions(); }
+function onEditorAction(event) { descriptionEditor.runAction(event.currentTarget.dataset.editorAction); }
 function onKeyDown(event) {
   const target = document.activeElement;
   const editingTarget = Boolean(target?.isContentEditable)
@@ -466,6 +471,7 @@ function destroy() {
   ui.detailsViewButton.removeEventListener("click", onDetailsView);
   ui.mapViewButton.removeEventListener("click", onMapView);
   ui.openCompletions.removeEventListener("click", onOpenCompletions);
+  for (const button of ui.editorActions) button.removeEventListener("click", onEditorAction);
   document.removeEventListener("keydown", onKeyDown);
   window.removeEventListener("beforeunload", onBeforeUnload);
   invalidators.clear();
@@ -489,6 +495,7 @@ map.mount();
 invalidators.add(() => details.draw());
 invalidators.add(() => map.render());
 ui.openCompletions.addEventListener("click", onOpenCompletions);
+for (const button of ui.editorActions) button.addEventListener("click", onEditorAction);
 ui.zoomIn.addEventListener("click", onZoomIn);
 ui.zoomOut.addEventListener("click", onZoomOut);
 ui.fitGraph.addEventListener("click", onFitGraph);

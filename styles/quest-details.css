@@ -10,6 +10,9 @@
 .canvas-scroll { min-height: 0; flex: 1; overflow: auto; }
 .canvas-stage { min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 30px; background-color: #202424; background-image: radial-gradient(#3b413e 0.6px, transparent 0.6px); background-size: 16px 16px; }
 #questCanvas { display: block; flex: none; image-rendering: pixelated; }
+.quest-links { flex: none; max-height: 76px; overflow: auto; padding: 8px 16px; background: #202424; border-top: 1px solid #303634; font-size: 12px; }
+.quest-links a { display: inline-block; margin-right: 16px; padding: 4px 0; color: #55ffff; text-decoration: underline; }
+.quest-links a:focus-visible { outline: 2px solid #f0d28b; outline-offset: 2px; }
 .canvas-footer { min-height: 34px; flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 18px; color: #a4aea7; background: #1d2121; border-top: 1px solid #303634; font: 9px var(--mono); }
 
 @media (max-width: 700px) {

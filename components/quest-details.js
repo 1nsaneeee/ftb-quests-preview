@@ -1,18 +1,22 @@
-import { splitPages, tokenizeFormatting } from "../lib/minecraft-text.js";
+import { safeLink, splitPages } from "../lib/minecraft-text.js";
+import { drawFormattedText } from "../lib/formatted-text.js";
 
 export class QuestDetails {
-  constructor({ canvas, scroll, stage, canvasSize, getAsset, textRenderer, onPageInfo, onPageChange }) {
+  constructor({ canvas, scroll, stage, canvasSize, links, getAsset, textRenderer, onPageInfo, onPageChange, onOpenLink }) {
     this.canvas = canvas;
     this.context = canvas.getContext("2d");
     this.scroll = scroll;
     this.stage = stage;
     this.canvasSize = canvasSize;
+    this.links = links;
+    this.onOpenLink = onOpenLink ?? (href => window.open(href, "_blank", "noopener,noreferrer"));
     this.getAsset = getAsset;
     this.textRenderer = textRenderer;
     this.onPageInfo = onPageInfo ?? (() => {});
     this.onPageChange = onPageChange ?? (() => {});
     this.snapshot = null;
     this.pageHitAreas = [];
+    this.linkHitAreas = [];
     this.resizeObserver = null;
     this.handleResize = () => this.draw();
     this.handleScroll = () => this.draw();
@@ -24,6 +28,17 @@ export class QuestDetails {
       const y = (event.clientY - rect.top) / scale;
       const hit = this.pageHitAreas.find(area => x >= area.left && x <= area.right && y >= area.top && y <= area.bottom);
       if (hit) this.onPageChange(hit.page);
+      const link = this.linkHitAreas.find(area => x >= area.left && x <= area.right && y >= area.top && y <= area.bottom);
+      if (link && safeLink(link.href)) this.onOpenLink(link.href);
+    };
+    this.handlePointerMove = event => {
+      const rect = this.canvas.getBoundingClientRect();
+      const scale = this.snapshot?.guiScale || 1;
+      const x = (event.clientX - rect.left) / scale;
+      const y = (event.clientY - rect.top) / scale;
+      const link = this.linkHitAreas.find(area => x >= area.left && x <= area.right && y >= area.top && y <= area.bottom);
+      this.canvas.style.cursor = link ? "pointer" : "";
+      this.canvas.title = link?.href ?? "";
     };
   }
 
@@ -35,6 +50,7 @@ export class QuestDetails {
       this.resizeObserver.observe(this.scroll);
     }
     this.canvas.addEventListener("click", this.handleCanvasClick);
+    this.canvas.addEventListener("pointermove", this.handlePointerMove);
     this.getAsset("minecraft:font/ascii", image => this.textRenderer.setAtlas(image));
     this.getAsset("ftblibrary:textures/gui/background_squares");
   }
@@ -101,6 +117,7 @@ export class QuestDetails {
     const page = Math.min(snapshot.page, Math.max(0, pages.length - 1));
     this.onPageInfo(page, pages.length);
     this.pageHitAreas = [];
+    this.linkHitAreas = [];
     const width = snapshot.logicalWidth;
     const padding = 16;
     const innerWidth = width - padding * 2;
@@ -147,11 +164,11 @@ export class QuestDetails {
     ctx.fillStyle = "#aaaaaa";
     ctx.font = "bold 10px 'Minecraft UI', 'Microsoft YaHei UI', sans-serif";
     ctx.textBaseline = "alphabetic";
-    ctx.fillText(selected.quest.title, panelX + (questIcon ? 27 : 9), panelY + 14, width - (questIcon ? 35 : 18));
+    drawFormattedText(ctx, selected.quest.title, panelX + (questIcon ? 27 : 9), panelY + 4, { size: 10, bold: true, color: "#aaaaaa", maxWidth: width - (questIcon ? 35 : 18) });
     if (hasSubtitle) {
       ctx.fillStyle = "#b8b8b8";
       ctx.font = "9px 'Minecraft UI', 'Microsoft YaHei UI', sans-serif";
-      ctx.fillText(selected.quest.subtitle, panelX + 9, panelY + 29, width - 18);
+      drawFormattedText(ctx, selected.quest.subtitle, panelX + 9, panelY + 20, { size: 9, color: "#b8b8b8", maxWidth: width - 18 });
     }
     const titleBottom = panelY + (hasSubtitle ? 36 : 25);
     ctx.fillStyle = "#1b1d1e";
@@ -182,6 +199,12 @@ export class QuestDetails {
       } else {
         for (const line of item.lines) {
           this.textRenderer.drawTokens(ctx, line, textLeft, y);
+          let x = textLeft;
+          for (const token of line) {
+            const advance = this.textRenderer.advance(token.character, token.style);
+            if (token.style.href) this.linkHitAreas.push({ left: x, right: x + advance, top: y, bottom: y + 9, href: token.style.href, label: token.character });
+            x += advance;
+          }
           y += 9;
         }
         y += 9;
@@ -205,6 +228,27 @@ export class QuestDetails {
       }
     }
     this.canvasSize.textContent = `${width} × ${Math.round(panelHeight)} logical px · ${scale}×`;
+    this.updateLinks();
+  }
+
+  updateLinks() {
+    if (!this.links) return;
+    const entries = new Map();
+    for (const area of this.linkHitAreas) entries.set(area.href, (entries.get(area.href) ?? "") + area.label);
+    const key = JSON.stringify([...entries]);
+    if (key === this.linksKey) return;
+    this.linksKey = key;
+    this.links.hidden = entries.size === 0;
+    const anchors = [...entries].map(([href, label]) => {
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.textContent = label;
+      anchor.title = href;
+      return anchor;
+    });
+    this.links.replaceChildren(...anchors);
   }
 
   makeTextHitArea(context, text, x, baselineY, page) {
@@ -241,7 +285,9 @@ export class QuestDetails {
     this.scroll.removeEventListener("scroll", this.handleScroll);
     this.resizeObserver?.disconnect();
     this.canvas.removeEventListener("click", this.handleCanvasClick);
+    this.canvas.removeEventListener("pointermove", this.handlePointerMove);
     this.pageHitAreas = [];
+    this.linkHitAreas = [];
     this.snapshot = null;
   }
 }

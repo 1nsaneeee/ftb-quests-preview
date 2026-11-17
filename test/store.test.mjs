@@ -19,6 +19,24 @@ async function copyFixtures(t) {
   return questDir;
 }
 
+test("unnamed quests inherit their first task title instead of displaying a hash ID", async t => {
+  const questDir = await copyFixtures(t);
+  await writeFile(join(questDir, "chapters", "automatic.snbt"), `{
+    id: "automatic" quests: [
+      { id: "5C7222F9A6C49487" tasks: [{ id: "t1" type: "item" item: { id: "immersiveengineering:manual" } }] }
+      { id: "task-title" tasks: [{ id: "t2" title: "&aTask name" type: "item" item: "minecraft:stone" }] }
+      { id: "empty-title" title: "" tasks: [{ id: "t3" type: "checkmark" }] }
+      { id: "explicit" title: "Quest name" tasks: [{ id: "t4" title: "Task name" }] }
+    ]
+  }`);
+  const store = await QuestStore.load({ questDir, locale: "zh_cn" });
+  assert.equal(store.showQuest("5C7222F9A6C49487").title, "物品 · immersiveengineering:manual");
+  assert.equal(store.showQuest("5C7222F9A6C49487").titleSource, "task");
+  assert.equal(store.showQuest("task-title").title, "&aTask name");
+  assert.equal(store.showQuest("empty-title").title, "手动确认");
+  assert.equal(store.showQuest("explicit").title, "Quest name");
+});
+
 test("loads localized quests, chapter groups, revisions, and search", async () => {
   const store = await QuestStore.load({ questDir: fixtureQuestDir, locale: "zh_cn" });
   assert.equal(store.locale, "zh_cn");
